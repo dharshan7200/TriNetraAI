@@ -28,6 +28,7 @@ class CheckpointRecord(SQLModel, table=True):
     scale_status: str
     calibration_date: Optional[str] = None
     images_json: str = Field(default="[]")
+    seals_json: str = Field(default="[]")
     seal_qr: Optional[str] = None
     serial: Optional[str] = None
     imei: Optional[str] = None

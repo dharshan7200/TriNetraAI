@@ -1,7 +1,11 @@
 """
 Staging, scale, and truth tools for TriNetra-Link (Phase C / Amendment v2.6).
 """
-from trinetra_link.staging.assign import CELL_QUOTAS, assign_staging_cells
+from trinetra_link.staging.assign import (
+    CELL_QUOTAS,
+    assign_staging_cells,
+    build_physical_staging_assignment,
+)
 from trinetra_link.staging.audit import compute_rule_audit_kappa, sample_journeys_for_audit
 from trinetra_link.staging.commit import commit_ground_truth_manifest
 from trinetra_link.staging.determinability import (
@@ -27,6 +31,7 @@ from trinetra_link.staging.split import (
 __all__ = [
     "CELL_QUOTAS",
     "assign_staging_cells",
+    "build_physical_staging_assignment",
     "StagingLogRecord",
     "append_staging_log_entry",
     "load_staging_log",

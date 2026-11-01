@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from trinetra_link.attribution.bayes import attribute_bayes
@@ -8,6 +9,7 @@ from trinetra_link.attribution.interval import attribute_interval_algorithm_1
 from trinetra_link.quality.gate import QualityGate
 from trinetra_link.reconcile.fuse import fuse_checkpoint_observations
 from trinetra_link.reconcile.identity import reconcile_identity
+from trinetra_link.reconcile.seals import determine_breach_depth, reconcile_seal_layers
 from trinetra_link.reconcile.visual import reconcile_visual
 from trinetra_link.reconcile.weight import reconcile_weights
 from trinetra_link.schema.models import Attribution, CheckpointObservation, Journey, QualityReport
@@ -42,6 +44,7 @@ def predict_trinetra_link(
     scales_path: Optional[Path | str] = None,
     disable_quality_gate: bool = False,
     disable_visual: bool = False,
+    disable_seals: bool = False,
     fixed_weight_threshold: Optional[float] = None,
 ) -> Attribution:
     """
@@ -63,6 +66,7 @@ def predict_trinetra_link(
             journey_code=code,
             label="ATTR_ABSTAIN_DEGRADED",
             rationale_text="Missing or incomplete checkpoint observations (fewer than 4 checkpoints).",
+            breach_depth=determine_breach_depth(journey.checkpoints) if not disable_seals else "none",
         )
 
     # Pass scales_config to QualityGate so scale_sigma is known
@@ -142,6 +146,12 @@ def predict_trinetra_link(
         # Identity test
         identity_anom, mismatches = reconcile_identity(obs_baseline=cp1, obs_current=cp_k)
 
+        # Layered seals test
+        if disable_seals:
+            seal_layers = {layer: "INTACT" for layer in ("L1_FWD", "L1_RET", "L2_BOX", "L3_ITEM")}
+        else:
+            seal_layers = reconcile_seal_layers(journey.checkpoints, k)
+
         # Visual test
         if disable_visual:
             visual_anom = False
@@ -167,7 +177,7 @@ def predict_trinetra_link(
             trusted_seal = False
             q_seal = 0.0
         else:
-            trusted_seal = (q_seal >= theta) and bool(cp_k.seal_qr or cp_k.serial or cp_k.imei)
+            trusted_seal = (q_seal >= theta) and bool(cp_k.seal_qr or cp_k.serial or cp_k.imei or cp_k.seals)
 
         trusted_weight = (
             (q_weight >= theta)
@@ -178,7 +188,7 @@ def predict_trinetra_link(
         )
 
         weight_obs = "ANOM" if weight_anom is True else ("INTACT" if weight_anom is False else "UNK")
-        seal_obs = "ANOM" if identity_anom else "INTACT"
+        seal_obs = "ANOM" if (identity_anom and not disable_seals) else "INTACT"
         photo_obs = "ANOM" if visual_anom else "INTACT"
 
         modality_evidence[k] = {
@@ -187,13 +197,33 @@ def predict_trinetra_link(
             "photo": (photo_obs if trusted_photo else "UNK", q_photo if trusted_photo else 0.0),
         }
 
+        # Integrate per-layer seal anomalies
+        if not disable_seals:
+            for l_name, l_st in seal_layers.items():
+                if not trusted_seal:
+                    modality_evidence[k][f"seal_{l_name}"] = ("UNK", 0.0)
+                elif l_st == "ANOM":
+                    modality_evidence[k][f"seal_{l_name}"] = ("ANOM", q_seal)
+                elif l_st == "UNK":
+                    modality_evidence[k][f"seal_{l_name}"] = ("UNK", 0.0)
+                else:
+                    modality_evidence[k][f"seal_{l_name}"] = ("INTACT", q_seal)
+
         anomalies_present = []
         agreements_present = []
 
         if trusted_weight:
             (anomalies_present if weight_anom is True else agreements_present).append("weight")
-        if trusted_seal:
-            (anomalies_present if identity_anom else agreements_present).append("seal")
+        if trusted_seal and not disable_seals:
+            if identity_anom:
+                anomalies_present.append("seal")
+            else:
+                agreements_present.append("seal")
+            for l_name, l_st in seal_layers.items():
+                if l_st == "ANOM":
+                    anomalies_present.append(f"seal_{l_name}")
+                elif l_st == "INTACT":
+                    agreements_present.append(f"seal_{l_name}")
         if trusted_photo:
             (anomalies_present if visual_anom else agreements_present).append("photo")
 
@@ -218,6 +248,11 @@ def predict_trinetra_link(
     other_trusted_anom = any(
         modality_evidence.get(k, {}).get("weight", ("UNK", 0.0))[0] == "ANOM"
         or modality_evidence.get(k, {}).get("seal", ("UNK", 0.0))[0] == "ANOM"
+        or any(
+            obs == "ANOM"
+            for mkey, (obs, _) in modality_evidence.get(k, {}).items()
+            if mkey.startswith("seal_")
+        )
         for k in (2, 3, 4)
     )
     if len(glare_cps) >= 2 and not other_trusted_anom:
@@ -228,6 +263,7 @@ def predict_trinetra_link(
             trusted_set=[k for k in (1, 2, 3, 4) if q_k.get(k, 0.0) >= theta],
             per_modality_evidence={"q_k": q_k, "z_k": z_k, "modality_evidence": modality_evidence},
             rationale_text="Optical specular glare obscures defect across bounding checkpoints; no other trusted modality shows change. Ambiguous attribution.",
+            breach_depth=determine_breach_depth(journey.checkpoints) if not disable_seals else "none",
         )
 
     # 3. Attribution Rule Selection
@@ -251,4 +287,5 @@ def predict_trinetra_link(
 
     # Standardize label output
     attr.label = canonicalize_label(attr.label)
+    attr.breach_depth = determine_breach_depth(journey.checkpoints) if not disable_seals else "none"
     return attr

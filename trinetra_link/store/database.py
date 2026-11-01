@@ -14,6 +14,7 @@ from trinetra_link.schema.models import (
     Journey,
     QualityReport,
     ReconcileResult,
+    SealObservation,
     StagingLogEntry,
 )
 from trinetra_link.store.tables import (
@@ -104,6 +105,7 @@ class Store:
                 scale_status=cp.scale_status,
                 calibration_date=cp.calibration_date,
                 images_json=json.dumps([img.model_dump() for img in cp.images]),
+                seals_json=json.dumps([s.model_dump() for s in cp.seals]),
                 seal_qr=cp.seal_qr,
                 serial=cp.serial,
                 imei=cp.imei,
@@ -125,6 +127,8 @@ class Store:
             for r in records:
                 images_raw = json.loads(r.images_json)
                 images = [ImageRef(**img) for img in images_raw]
+                seals_raw = json.loads(r.seals_json) if getattr(r, "seals_json", None) else []
+                seals = [SealObservation(**s) for s in seals_raw]
                 result.append(
                     CheckpointObservation(
                         journey_code=r.journey_code,
@@ -137,6 +141,7 @@ class Store:
                         scale_status=r.scale_status,
                         calibration_date=r.calibration_date,
                         images=images,
+                        seals=seals,
                         seal_qr=r.seal_qr,
                         serial=r.serial,
                         imei=r.imei,

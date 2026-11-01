@@ -91,6 +91,7 @@ def evaluate_e3(
         "TriNetra-Link (Full - Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", scales_config=scales_config),
         "Ablation: No Quality Gate (q=1)": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_quality_gate=True),
         "Ablation: No Visual Reconciler": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_visual=True),
+        "Ablation: No Seals": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_seals=True),
         "Ablation: Fixed 2g Weight Thresh": lambda j: predict_trinetra_link(j, mode="algorithm1", fixed_weight_threshold=2.0),
     }
 

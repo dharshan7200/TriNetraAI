@@ -267,11 +267,13 @@ def evaluate_e1(
     scenario_cells: List[str] = []
     test_journeys: List[Journey] = []
 
-    # Subgroup columns: weight_matched and mass_change_g (read ONLY inside eval/)
+    # Subgroup columns: weight_matched, mass_change_g, seal_action (read ONLY inside eval/)
     has_wm_col = any("weight_matched" in r for r in test_staging)
     has_mc_col = any("mass_change_g" in r for r in test_staging)
+    has_sa_col = any("seal_action" in r for r in test_staging)
     wm_subgroups: List[str] = []
     mc_subgroups: List[str] = []
+    sa_subgroups: List[str] = []
 
     for r in test_staging:
         code = r["journey_code"]
@@ -302,6 +304,12 @@ def evaluate_e1(
         else:
             val_mc = "n/a"
         mc_subgroups.append(val_mc)
+
+        if has_sa_col and r.get("seal_action") is not None and str(r.get("seal_action")).strip() != "":
+            val_sa = str(r.get("seal_action")).strip().lower()
+        else:
+            val_sa = "none"
+        sa_subgroups.append(val_sa)
 
         loaded_journey = None
         if demo_store:
@@ -413,6 +421,7 @@ def evaluate_e1(
     subgroups_to_eval = [
         ("weight_matched", sorted(list(set(wm_subgroups))), wm_subgroups),
         ("mass_change_g", sorted(list(set(mc_subgroups))), mc_subgroups),
+        ("seal_action", sorted(list(set(sa_subgroups))), sa_subgroups),
     ]
 
     for sg_name, sg_distinct, sg_assigned in subgroups_to_eval:

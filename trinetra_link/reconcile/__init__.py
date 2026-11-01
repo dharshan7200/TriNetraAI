@@ -10,6 +10,10 @@ from trinetra_link.reconcile.identity import (
     evaluate_verdict_service_parity,
     reconcile_identity,
 )
+from trinetra_link.reconcile.seals import (
+    determine_breach_depth,
+    reconcile_seal_layers,
+)
 from trinetra_link.reconcile.visual import (
     compute_visual_change_score,
     rectify_surface_homography,
@@ -32,4 +36,6 @@ __all__ = [
     "rectify_surface_homography",
     "compute_visual_change_score",
     "fuse_checkpoint_observations",
+    "reconcile_seal_layers",
+    "determine_breach_depth",
 ]

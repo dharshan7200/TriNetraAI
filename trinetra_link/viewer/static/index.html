@@ -502,6 +502,25 @@
         badge.classList.add('badge-indistinguishable');
       }
 
+      // Display breach depth if present
+      let depthElem = document.getElementById('breachDepthBadge');
+      if (!depthElem) {
+        depthElem = document.createElement('div');
+        depthElem.id = 'breachDepthBadge';
+        depthElem.style.cssText = "font-size: 0.8rem; margin-top: 0.5rem; color: var(--accent-amber); font-family: var(--font-mono);";
+        badge.parentElement.appendChild(depthElem);
+      }
+      if (attr.breach_depth && attr.breach_depth !== 'none') {
+        let depthText = attr.breach_depth;
+        if (depthText === 'L1_only') depthText = 'Flyer only (L1 breached)';
+        else if (depthText === 'box_entered') depthText = 'Box entered (L2/L3 breached)';
+        else if (depthText === 'full_substitution') depthText = 'Full substitution (all layers replaced)';
+        depthElem.textContent = `Breach Depth: ${depthText}`;
+        depthElem.style.display = 'block';
+      } else {
+        depthElem.style.display = 'none';
+      }
+
       rationale.textContent = attr.rationale_text || "No rationale text available.";
     }
 
@@ -543,6 +562,19 @@
             <span>Seal QR</span>
             <span class="metric-value">${cp.seal_qr ? cp.seal_qr.substring(0, 12)+'...' : 'NONE'}</span>
           </div>
+          ${cp.seals && cp.seals.length > 0 ? `
+            <div class="metric-row" style="margin-top: 4px; flex-direction: column; align-items: flex-start; gap: 4px;">
+              <span style="font-size: 0.72rem; color: var(--text-muted);">Layered Seals:</span>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                ${cp.seals.map(s => {
+                  let bColor = '#10b981'; // INTACT
+                  if (s.state === 'TORN' || s.state === 'MISSING') bColor = '#ef4444';
+                  else if (s.state === 'UNREADABLE') bColor = '#f59e0b';
+                  return `<span style="font-size: 0.65rem; background: ${bColor}22; color: ${bColor}; border: 1px solid ${bColor}66; border-radius: 4px; padding: 1px 5px; font-family: var(--font-mono);">${s.layer}: ${s.state}</span>`;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
           <div class="metric-row">
             <span>Operator</span>
             <span class="metric-value">${cp.operator_id || 'OP-AUTO'}</span>

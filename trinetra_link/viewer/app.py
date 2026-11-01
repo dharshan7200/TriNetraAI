@@ -251,6 +251,14 @@ def create_viewer_app(
                 "seal_qr": cp.seal_qr,
                 "serial": cp.serial,
                 "imei": cp.imei,
+                "seals": [
+                    {
+                        "layer": s.layer,
+                        "seal_id_read": s.seal_id_read,
+                        "state": s.state,
+                    }
+                    for s in cp.seals
+                ],
                 "photos": [
                     {
                         "side": p.side,
@@ -278,6 +286,7 @@ def create_viewer_app(
                 "trusted_set": attr.trusted_set,
                 "rationale_text": attr.rationale_text,
                 "decision": attr.decision,
+                "breach_depth": attr.breach_depth,
             },
         }
 

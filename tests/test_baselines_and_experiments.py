@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+from typing import Optional
 import pytest
 from typer.testing import CliRunner
 
@@ -214,7 +215,7 @@ def test_experiments_e1_e2_e3_integration(tmp_path: Path):
         staging_log_path=res_assign["csv_path"],
         output_dir=e3_dir,
     )
-    assert len(e3_res["results"]) == 5
+    assert len(e3_res["results"]) == 6
     assert Path(e3_res["artifacts"]["csv_table"]).exists()
     assert Path(e3_res["artifacts"]["figure_png"]).exists()
 

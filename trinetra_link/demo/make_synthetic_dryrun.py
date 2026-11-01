@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from trinetra_link.config import REPO_ROOT
-from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey
+from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey, SealObservation
 from trinetra_link.staging.assign import CELL_QUOTAS
 from trinetra_link.staging.determinability import derive_ground_truth, get_determinability_rule_hash
 from trinetra_link.staging.split import CALIBRATION_QUOTAS
@@ -280,6 +280,31 @@ def generate_synthetic_dryrun_dataset(
         elif cell == "ambiguous_evidence":
             has_glare = True
 
+        # Seal action, mass change, weight matched (Amendment v2.6, Section 4-6)
+        if cell in ("intact", "forward_transit_damage"):
+            seal_action = "none"
+        elif cell == "permitted_flyer":
+            seal_action = "flyer_replaced_logged"
+        elif cell == "doorstep_substitution":
+            seal_action = "all_decoy"
+        elif cell == "ambiguous_evidence":
+            seal_action = "subtle"
+        elif cell in ("customer_tamper", "reverse_transit_tamper", "degraded_evidence"):
+            seal_action = rng.choice(["torn", "replaced"])
+        else:
+            seal_action = "none"
+
+        if cell in ("customer_tamper", "reverse_transit_tamper", "doorstep_substitution", "degraded_evidence"):
+            mass_val = rng.choice([0, 0, 10, 20, 50, 100, 150])
+            mass_change_g = str(mass_val)
+            weight_matched = "yes" if mass_val == 0 else "no"
+        elif cell == "ambiguous_evidence":
+            mass_change_g = "0"
+            weight_matched = "yes"
+        else:
+            mass_change_g = ""
+            weight_matched = "n/a"
+
         stg_row = {
             "journey_code": code,
             "assigned_cell": cell,
@@ -292,6 +317,9 @@ def generate_synthetic_dryrun_dataset(
             "overhead_video_sha256": hashlib.sha256(f"OVERHEAD_SYN_{code}".encode()).hexdigest(),
             "staged_by": "SYNTHETIC_DEMO_GENERATOR",
             "synthetic": "true",
+            "seal_action": seal_action,
+            "weight_matched": weight_matched,
+            "mass_change_g": mass_change_g,
         }
         staging_log_rows.append(stg_row)
 
@@ -307,12 +335,28 @@ def generate_synthetic_dryrun_dataset(
         })
 
         # Generate Checkpoints CP1..CP4
+        # Weights are BOX-ONLY (no flyer tare, tare_delta_g = 0.0 for flyer changes affecting only flyer mass)
         w_curr = w_baseline
-        tare_delta = 15.0 if cell == "permitted_flyer" else 0.0
+        tare_delta = 0.0
         cps: List[CheckpointObservation] = []
         serial_no = f"SN-SYN-{code[-4:]}982"
         imei_no = f"35987102983{code[-4:]}"
         orig_seal = f"SEAL-SYN-{code[-4:]}"
+
+        # Genuine Reference Seal IDs
+        l1_fwd_ref = f"SEAL-FWD-{code[-4:]}"
+        l2_box_ref = f"SEAL-BOX-{code[-4:]}"
+        l3_item_ref = f"TAG-ITM-{code[-4:]}"
+        l1_ret_ref = f"SEAL-RET-{code[-4:]}"
+
+        # Decoy / Replacement Seal IDs
+        new_l1_fwd_id = f"SEAL-NEWFWD-{code[-4:]}"
+        decoy_l1_id = f"SEAL-DEC-L1-{code[-4:]}"
+        decoy_l2_id = f"SEAL-DEC-L2-{code[-4:]}"
+        decoy_l3_id = f"TAG-DEC-L3-{code[-4:]}"
+        repl_l2_id = f"SEAL-REPL-L2-{code[-4:]}"
+        repl_l3_id = f"TAG-REPL-L3-{code[-4:]}"
+        repl_l1_ret_id = f"SEAL-REPL-RET-{code[-4:]}"
 
         for k in (1, 2, 3, 4):
             cp_time = base_time + timedelta(hours=(k - 1) * 3)
@@ -325,33 +369,126 @@ def generate_synthetic_dryrun_dataset(
             # Manipulation step
             if tamper_stage > 0 and k > tamper_stage:
                 if cell == "forward_transit_damage":
-                    w_curr -= 5.0  # Weight loss from carton rupture
+                    w_curr = max(25.0, w_curr - 5.0)  # Weight loss from carton rupture
+                elif mass_change_g != "" and mass_change_g != "0":
+                    w_curr = max(25.0, w_curr - float(mass_change_g))
                 elif cell in ("doorstep_substitution", "customer_tamper", "reverse_transit_tamper", "degraded_evidence"):
-                    w_curr -= 42.0  # Item substituted with lighter surrogate
-                elif cell == "ambiguous_evidence":
-                    pass  # Defect obscured by glare; no weight change
+                    # Non weight-matched fallback if mass_change_g is empty
+                    w_curr = max(25.0, w_curr - 42.0)
 
             # Checkpoint degradation flags
             is_cp_degraded = (degraded_cp == f"cp{k}")
             is_cp_glare = (has_glare and k >= 3)
             is_tampered_state = (tamper_stage > 0 and k > tamper_stage)
 
-            # Weights
+            # Weights (BOX-ONLY)
             if is_cp_degraded:
                 scale_status = "ERROR"
                 readings = []  # No weights at degraded checkpoint
             else:
                 scale_status = "OK"
                 noise = np_rng.normal(0.0, scale_sigma, size=3)
-                readings = [round(float(w_curr + n), 2) for n in noise]
+                readings = [round(float(max(1.0, w_curr + n)), 2) for n in noise]
 
-            # Seal identifier
+            # Seal identifier (legacy seal_qr)
             if is_tampered_state and cell in ("doorstep_substitution", "customer_tamper", "reverse_transit_tamper", "degraded_evidence"):
                 seal_qr = f"SEAL-VOID-{code[-4:]}"
             else:
                 seal_qr = orig_seal
 
             carrier_notes = "Camera glare over defect" if is_cp_glare else ""
+
+            # Layered seals (Amendment v2.6, Section 4A)
+            cp_seals: List[SealObservation] = []
+            if k == 1:
+                cp_seals = [
+                    SealObservation(layer="L1_FWD", seal_id_read=l1_fwd_ref, state="INTACT"),
+                    SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT"),
+                    SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT"),
+                ]
+            elif k == 2:
+                if cell == "permitted_flyer":
+                    carrier_notes = f"flyer replaced at hub, new seal {new_l1_fwd_id}"
+                    cp_seals = [
+                        SealObservation(layer="L1_FWD", seal_id_read=new_l1_fwd_id, state="INTACT"),
+                        SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT"),
+                        SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT"),
+                    ]
+                elif cell == "doorstep_substitution":
+                    cp_seals = [
+                        SealObservation(layer="L1_FWD", seal_id_read=decoy_l1_id, state="INTACT"),
+                        SealObservation(layer="L2_BOX", seal_id_read=decoy_l2_id, state="INTACT"),
+                        SealObservation(layer="L3_ITEM", seal_id_read=decoy_l3_id, state="INTACT"),
+                    ]
+                else:
+                    cp_seals = [
+                        SealObservation(layer="L1_FWD", seal_id_read=l1_fwd_ref, state="INTACT"),
+                        SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT"),
+                        SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT"),
+                    ]
+            elif k == 3:
+                s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="INTACT")
+                if is_tampered_state and tamper_stage == 2:
+                    if seal_action == "torn":
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="TORN")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=None, state="MISSING")
+                    elif seal_action == "replaced":
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=repl_l2_id, state="INTACT")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=repl_l3_id, state="INTACT")
+                    elif seal_action == "subtle":
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=None, state="UNREADABLE")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                    else:
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                elif cell == "doorstep_substitution":
+                    s_l2 = SealObservation(layer="L2_BOX", seal_id_read=decoy_l2_id, state="INTACT")
+                    s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=decoy_l3_id, state="INTACT")
+                else:
+                    s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT")
+                    s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                cp_seals = [s_l1_ret, s_l2, s_l3]
+            elif k == 4:
+                if is_tampered_state and tamper_stage == 3:
+                    if seal_action == "torn":
+                        s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="TORN")
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="TORN")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=None, state="MISSING")
+                    elif seal_action == "replaced":
+                        s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=repl_l1_ret_id, state="INTACT")
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=repl_l2_id, state="INTACT")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=repl_l3_id, state="INTACT")
+                    elif seal_action == "subtle":
+                        s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="INTACT")
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=None, state="UNREADABLE")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                    else:
+                        s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="INTACT")
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                elif is_tampered_state and tamper_stage == 2:
+                    s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="INTACT")
+                    if seal_action == "torn":
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="TORN")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=None, state="MISSING")
+                    elif seal_action == "replaced":
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=repl_l2_id, state="INTACT")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=repl_l3_id, state="INTACT")
+                    elif seal_action == "subtle":
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=None, state="UNREADABLE")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                    else:
+                        s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT")
+                        s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                elif cell == "doorstep_substitution":
+                    s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="INTACT")
+                    s_l2 = SealObservation(layer="L2_BOX", seal_id_read=decoy_l2_id, state="INTACT")
+                    s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=decoy_l3_id, state="INTACT")
+                else:
+                    s_l1_ret = SealObservation(layer="L1_RET", seal_id_read=l1_ret_ref, state="INTACT")
+                    s_l2 = SealObservation(layer="L2_BOX", seal_id_read=l2_box_ref, state="INTACT")
+                    s_l3 = SealObservation(layer="L3_ITEM", seal_id_read=l3_item_ref, state="INTACT")
+                cp_seals = [s_l1_ret, s_l2, s_l3]
 
             # Render Photos (TOP, LABEL, SEAL)
             cp_images: List[ImageRef] = []
@@ -398,6 +535,7 @@ def generate_synthetic_dryrun_dataset(
                 permitted_packaging_change=is_permitted,
                 tare_delta_g=tare_delta if is_permitted else 0.0,
                 images=cp_images,
+                seals=cp_seals,
             )
             cps.append(cp_obs)
 
@@ -449,7 +587,8 @@ def generate_synthetic_dryrun_dataset(
     fieldnames = [
         "journey_code", "assigned_cell", "manipulation_interval", "actual_manipulation",
         "tare_adjusted", "degraded_checkpoint", "degradation_type", "glare_over_defect",
-        "overhead_video_sha256", "staged_by", "synthetic"
+        "overhead_video_sha256", "staged_by", "synthetic",
+        "seal_action", "weight_matched", "mass_change_g"
     ]
     with open(staging_log_csv, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
