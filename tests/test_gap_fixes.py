@@ -59,3 +59,20 @@ def test_structured_provenance_fields_take_precedence_over_notes():
     assert not identifiers_independent_of_photos(explicit)
     scanned = _cp(2, identifier_source="scanned")
     assert identifiers_independent_of_photos(scanned)
+
+
+def test_untrusted_cp1_photo_cannot_anchor_visual_comparison(monkeypatch):
+    """A blurred or dark CP1 reference makes the photo modality untrusted at every later checkpoint."""
+    from trinetra_link.eval import pipeline
+    from trinetra_link.schema.models import QualityReport
+
+    def fake_eval(self, obs, previous_observation=None):
+        q_photo = 0.1 if obs.cp_index == 1 else 1.0
+        return QualityReport(journey_code=obs.journey_code, cp_index=obs.cp_index, q_k=1.0, passed=True, reasons=[],
+                             feature_scores={"q_weight": 1.0, "q_seal": 1.0, "q_photo": q_photo})
+
+    monkeypatch.setattr(pipeline.QualityGate, "evaluate", fake_eval)
+    monkeypatch.setattr(pipeline, "reconcile_visual", lambda *a, **k: (True, {"TOP": 0.9}))  # photos "differ"
+    journey = Journey(journey_code="J-1", checkpoints=[_cp(1), _cp(2), _cp(3), _cp(4)])
+    attr = predict_trinetra_link(journey, theta=0.5)
+    assert attr.label == "ATTR_CONFIRMED_LEGITIMATE"  # weights and identity agree; the photo change is not evidence

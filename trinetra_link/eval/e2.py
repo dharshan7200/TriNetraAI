@@ -112,6 +112,8 @@ def evaluate_e2(
     output_dir: Optional[Path | str] = None,
     run_id: Optional[str] = None,
     theta: float = 0.70,
+    visual_threshold: float = 0.25,
+    visual_method: str = "global",
     scales_path: Optional[Path | str] = None,
     store_path: Optional[Path | str] = None,
     allow_label_rebuild: bool = False,
@@ -192,7 +194,7 @@ def evaluate_e2(
             is_usable = not (spec["degraded"] and spec["target"] in _bounding_checkpoints(r_stg))
             omega_star, exp_label, _ = derive_ground_truth(r_stg, capture_quality_passed=is_usable)
 
-            attr = predict_trinetra_link(j_pert, theta=theta, scales_config=scales_config)
+            attr = predict_trinetra_link(j_pert, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, scales_config=scales_config)
             preds.append(canonicalize_label(attr.label))
             gts.append(canonicalize_label(exp_label))
             omegas.append(omega_star)

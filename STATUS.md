@@ -25,7 +25,7 @@
   - Multimodal Reconcilers: Weight anomaly testing, Identity parity rules 1–6, Homography visual change score (`reconcile/`).
   - Attribution Algorithm 1 (deterministic interval isolation) and Bayesian quality-exponent coalescence (`attribution/`).
   - Model fitting CLI `trinetra fit --split calibration` (`fit.py`).
-  - **Tests:** 115 passing in `tests/`; 75% line coverage of `trinetra_link/` (2026-11-14).
+  - **Tests:** 123 passing in `tests/`; 75% line coverage of `trinetra_link/` (2026-11-14).
 
 - [x] **Phase B: Capture Path**
   - High-throughput FastAPI Ingest API (`ingest/api.py`).
@@ -80,3 +80,10 @@ The November 2026 review found that several code paths could produce numbers tha
 - Operational policy maps each attribution to a distinct decision code.
 - Ingest API: no default token, header-only token with constant-time compare, CORS off unless `TRINETRA_CORS_ORIGINS` is set; capture page has no pre-filled values and no mock-photo fallback.
 - Packaging (`pyproject.toml`), pinned ruff, and `pytest tests/` in CI.
+- A modality at CP k is trusted only if it is also trusted at the CP1 reference (a blurred CP1 photo can no longer anchor a visual comparison).
+- `fit` searches θ and the visual threshold with the evaluation pipeline itself (it used to re-implement the pipeline without layered seals) and derives truth only from the staging log (it used to guess truth from cell names, mapping doorstep substitution to S2). E1–E3 and `reproduce.sh` now use the fitted visual threshold.
+- New registered local visual reconciler (`--visual-method local`): ECC alignment, glare masking and block-wise SSIM. The preregistered global 1 − SSIM score stays the default until a protocol amendment adopts it.
+
+## 5. Simulation study (2026-11-14)
+
+`python -m trinetra_link.sim.run_study main` generates a 960-journey simulated benchmark with nuisance effects drawn independently of the scenario cell, fits on its calibration split and runs E1 (full and field masks) and the E3 ablations; `sweep` runs sensitivity points. All outputs are SIMULATED; they stress-test the method and do not replace the physical study.

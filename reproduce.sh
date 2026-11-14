@@ -39,7 +39,8 @@ if [[ -f "${DB}" && -f "${MANIFEST}" && -f "${STAGING_LOG}" && -f "${SCALES}" ]]
   python -m trinetra_link.cli fit --split calibration --db "${DB}" --manifest "${MANIFEST}" \
     --staging-log "${STAGING_LOG}" --scales "${SCALES}" | tee "${RUN_DIR}/fit.log"
   THETA=$(grep -Eo 'theta \(quality\) *= *[0-9.]+' "${RUN_DIR}/fit.log" | grep -Eo '[0-9.]+$')
-  COMMON=(--split test --manifest "${MANIFEST}" --staging-log "${STAGING_LOG}" --scales "${SCALES}" --db "${DB}" --theta "${THETA}")
+  VT=$(grep -Eo 'visual_threshold *= *[0-9.]+' "${RUN_DIR}/fit.log" | grep -Eo '[0-9.]+$')
+  COMMON=(--split test --manifest "${MANIFEST}" --staging-log "${STAGING_LOG}" --scales "${SCALES}" --db "${DB}" --theta "${THETA}" --visual-threshold "${VT}")
   for MASK in full field; do
     python -m trinetra_link.cli eval e1 "${COMMON[@]}" --mask "${MASK}" --output "${RUN_DIR}/e1_${MASK}"
   done

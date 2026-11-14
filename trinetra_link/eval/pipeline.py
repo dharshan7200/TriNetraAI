@@ -46,6 +46,7 @@ def predict_trinetra_link(
     disable_visual: bool = False,
     disable_seals: bool = False,
     fixed_weight_threshold: Optional[float] = None,
+    visual_method: str = "global",
 ) -> Attribution:
     """
     Run full TriNetra-Link pipeline on a journey:
@@ -56,6 +57,8 @@ def predict_trinetra_link(
       - disable_quality_gate: forces all q_k = 1.0
       - disable_visual: ignores visual reconciler anomalies
       - fixed_weight_threshold: replaces scale noise model with constant grams threshold
+    visual_method: "global" (preregistered 1 - SSIM of the rectified face) or "local"
+      (registered, block-wise structural dissimilarity; see reconcile.visual.compute_local_change_score).
     """
     code = journey.journey_code
     cps = {cp.cp_index: cp for cp in journey.checkpoints}
@@ -108,6 +111,16 @@ def predict_trinetra_link(
         q_k[k] = qr.q_k
 
     # 2. Multimodal Reconciliation
+    # Every comparison is against CP1, so a modality can only be trusted at CP k if it was also
+    # trusted at the CP1 reference (a blurred or dark CP1 photo cannot anchor a visual comparison).
+    qr1 = q_reports[1]
+    q1_photo = qr1.feature_scores.get("q_photo", qr1.feature_scores.get("q_image", 1.0))
+    q1_weight = qr1.feature_scores.get("q_weight", qr1.feature_scores.get("q_scale", 1.0))
+    q1_seal = qr1.feature_scores.get("q_seal", qr1.feature_scores.get("q_temporal", 1.0))
+    ref_photo_ok = (q1_photo >= theta) and bool(cp1.images) and not glare_reported(cp1)
+    ref_weight_ok = (q1_weight >= theta) and cp1.scale_status in ("OK", "MANUAL", "SETTLED")
+    ref_seal_ok = (q1_seal >= theta) and (ref_photo_ok or identifiers_independent_of_photos(cp1))
+
     z_k: Dict[int, str] = {1: "INTACT"}
     modality_evidence: Dict[int, Dict[str, Tuple[str, float]]] = {}
 
@@ -161,6 +174,7 @@ def predict_trinetra_link(
                 obs_baseline=cp1,
                 obs_current=cp_k,
                 visual_threshold=visual_threshold,
+                method=visual_method,
             )
 
         # Checkpoint-level glare over defect
@@ -169,7 +183,7 @@ def predict_trinetra_link(
             q_photo = min(q_photo, 0.20)
 
         is_human_typed = identifiers_independent_of_photos(cp_k)
-        trusted_photo = (q_photo >= theta) and bool(cp_k.images) and not disable_visual
+        trusted_photo = (q_photo >= theta) and bool(cp_k.images) and not disable_visual and ref_photo_ok
 
         # Rule: A checkpoint whose photos are untrusted (dark or blurred) cannot read seal IDs
         # from photos: seal modality is UNREADABLE there unless typed by a human
@@ -177,12 +191,13 @@ def predict_trinetra_link(
             trusted_seal = False
             q_seal = 0.0
         else:
-            trusted_seal = (q_seal >= theta) and bool(
+            trusted_seal = (q_seal >= theta) and ref_seal_ok and bool(
                 cp_k.seal_qr or cp_k.serial or cp_k.imei or (cp_k.seals and not disable_seals)
             )
 
         trusted_weight = (
             (q_weight >= theta)
+            and ref_weight_ok
             and (weight_anom != "UNKNOWN")
             and bool(cp_k.weights_g)
             and bool(cp1.weights_g)

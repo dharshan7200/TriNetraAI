@@ -125,6 +125,8 @@ Under Protocol Amendment v2.6.0, all human-reviewer calibration requirements (Ga
 
 `python -m trinetra_link.cli demo run` executes the full pipeline on a **synthetic dry run (seed 777)** to show that every stage runs end to end. Its outputs are watermarked `SYNTHETIC DRY RUN — NOT A RESULT` and must not be cited as evidence about the method.
 
+**Simulation study.** `python -m trinetra_link.sim.run_study main --out results/sim` generates a 960-journey simulated benchmark (scale faults, poor photographs, unreported glare and identifier misreads drawn independently of the scenario), fits on its calibration split and runs E1 (full and field masks) and the E3 ablations; `run_study sweep --param <name> --value <v>` runs the sensitivity points. These are simulated results that stress-test the method; they do not replace the physical study.
+
 Experiments E1–E3 refuse to run on journeys that are not in the capture store. `--pipeline-self-test` lets them rebuild missing journeys from labels to exercise the code; those outputs are watermarked `PIPELINE SELF-TEST ON LABEL-BUILT JOURNEYS — NOT A RESULT`.
 
 ---
@@ -221,7 +223,7 @@ TriNetra-Link includes a read-only visualizer for demonstration and figure gener
 │   ├── amendments/             # Formal protocol amendments (AMENDMENT_v2.6.md)
 │   └── reviewed_v2/            # Preregistration protocol v2.5
 ├── results/                    # Run outputs (git-ignored; empty until the study runs)
-├── tests/                      # 115 automated unit & integration tests
+├── tests/                      # 123 automated unit & integration tests
 ├── trinetra_link/              # Core TriNetra-Link Python package
 │   ├── attribution/            # Algorithm 1, Bayesian coalescence, operational policy
 │   ├── baselines/              # Baselines B1 through B5 implementations
@@ -230,6 +232,7 @@ TriNetra-Link includes a read-only visualizer for demonstration and figure gener
 │   ├── quality/                # Metadata-only quality gate (q_k in [0, 1])
 │   ├── reconcile/              # Weight, identity, and visual homography reconcilers
 │   ├── scale/                  # Empirical scale characterisation and noise fitting
+│   ├── sim/                    # Simulation study: generator, fitting/evaluation driver, runner
 │   ├── schema/                 # Pydantic models and JSON schema exports
 │   ├── staging/                # Cell assignment, staging log, and determinability rule
 │   └── viewer/                 # Blinded research visualizer web application

@@ -30,6 +30,8 @@ def evaluate_e3(
     output_dir: Optional[Path | str] = None,
     run_id: Optional[str] = None,
     theta: float = 0.70,
+    visual_threshold: float = 0.25,
+    visual_method: str = "global",
     store_path: Optional[Path | str] = None,
     allow_label_rebuild: bool = False,
 ) -> Dict[str, Any]:
@@ -89,7 +91,7 @@ def evaluate_e3(
         omega_stars.append(omega_star)
 
     # Ablation configurations: every variant uses the same fitted theta and scale noise model
-    common = {"theta": theta, "scales_config": scales_config}
+    common = {"theta": theta, "visual_threshold": visual_threshold, "visual_method": visual_method, "scales_config": scales_config}
     ablation_configs: Dict[str, Callable[[Journey], Any]] = {
         "TriNetra-Link (Full - Alg 1)": lambda j: predict_trinetra_link(j, mode="algorithm1", **common),
         "TriNetra-Link (Full - Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", **common),

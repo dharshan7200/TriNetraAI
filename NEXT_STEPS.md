@@ -5,7 +5,7 @@
 ## Done
 
 - **Steps 1 and 2 are complete** (commit `1bcb31a`): B1 as CP4-only practice, B2 as endpoints, `--mask full|field`, subgroup tables, layered seals (`reconcile/seals.py`, `breach_depth`), generator, viewer badges, No Layered Seals ablation, seal tests.
-- **Review fixes** (2026-11-14): see `STATUS.md` §4. 115 tests pass; ruff is clean; CI runs `pytest tests/`.
+- **Review fixes** (2026-11-14): see `STATUS.md` §4. 123 tests pass; ruff is clean; CI runs `pytest tests/`.
 
 The software is ready for data collection. **No result exists until the steps below are done.**
 
@@ -22,9 +22,13 @@ The software is ready for data collection. **No result exists until the steps be
 ## Open decisions for the team
 
 - **Doorstep substitution label.** The protocol scores it as S1. Confirm or amend before G-2.
-- **Visual local-change detector.** The global 1 − SSIM score misses small local edits; set a local-patch threshold from pilot data (not before), and record it as an amendment.
+- **Visual reconciler.** The simulation study shows the preregistered global 1 − SSIM score responds to pose changes more than to small tamper marks. A registered local scorer is implemented (`--visual-method local`). Adopting it for the physical study needs a protocol amendment before G-2; its threshold is then fitted on the calibration split.
 - **Android app.** Not wired to the ingest API. Either wire and test it before the pilot or state in the paper that capture used the web page.
 - **Repo layout.** `android/` and `backend/` (Java) are outside the study; consider moving them under `legacy/` once someone can rebuild them.
+
+## Simulation study
+
+Done (see `STATUS.md` §5 and the paper). Re-run with `python -m trinetra_link.sim.run_study main --out results/sim`, then the `sweep` points listed in `trinetra_link/sim/run_study.py`.
 
 ## Future work (not started)
 
@@ -34,6 +38,6 @@ The software is ready for data collection. **No result exists until the steps be
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest tests/ -q        # 115 passed
+python -m pytest tests/ -q        # 123 passed
 ruff check .
 ```

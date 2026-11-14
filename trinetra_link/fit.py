@@ -7,8 +7,13 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from trinetra_link.config import DERIVED_DATA_DIR, RESULTS_DIR
-from trinetra_link.quality.provenance import glare_reported, identifiers_independent_of_photos
 from trinetra_link.schema.models import Journey
+
+# Candidate visual thresholds per visual reconciler ("global" is the preregistered 1 - SSIM score).
+VISUAL_GRIDS = {
+    "global": [0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60, 0.70],
+    "local": [0.03, 0.04, 0.05, 0.06, 0.08, 0.10, 0.15],
+}
 
 
 def fit_thresholds(
@@ -20,6 +25,7 @@ def fit_thresholds(
     floors_path: Optional[Path | str] = None,
     output_dir: Optional[Path | str] = None,
     allow_synthetic_dry_run: bool = False,
+    visual_method: str = "global",
 ) -> Dict[str, Any]:
     """
     Fit TriNetra-Link hyperparameters on calibration split only:
@@ -94,212 +100,59 @@ def fit_thresholds(
 
     if journeys:
         import csv
-        from trinetra_link.attribution.interval import attribute_interval_algorithm_1
         from trinetra_link.eval.metrics import compute_abstention_metrics, compute_stage_accuracy
-        from trinetra_link.eval.pipeline import canonicalize_label
-        from trinetra_link.quality.gate import QualityGate
-        from trinetra_link.reconcile.identity import reconcile_identity
-        from trinetra_link.reconcile.visual import reconcile_visual
-        from trinetra_link.reconcile.weight import reconcile_weights
+        from trinetra_link.eval.pipeline import canonicalize_label, predict_trinetra_link
         from trinetra_link.staging.determinability import derive_ground_truth
 
-        # Load staging rows if available
-        staging_rows = {}
-        s_path = Path(staging_log_path) if staging_log_path else (DERIVED_DATA_DIR / "staging_log.csv")
+        # Ground truth comes only from the staging log; a journey without a staging row is an error.
+        s_path = Path(staging_log_path) if staging_log_path else (DERIVED_DATA_DIR.parent / "restricted" / "staging_log_120.csv")
         if not s_path.exists():
-            s_path = DERIVED_DATA_DIR.parent / "demo_data" / "synthetic_120" / "staging_log_120.csv"
-        if s_path.exists():
-            with open(s_path, "r", encoding="utf-8") as f:
-                staging_rows = {r["journey_code"]: r for r in csv.DictReader(f)}
+            raise FileNotFoundError(f"Staging log not found at {s_path}; ground truth cannot be derived for fitting.")
+        with open(s_path, "r", encoding="utf-8") as f:
+            staging_rows = {r["journey_code"]: r for r in csv.DictReader(f)}
+        missing = [j.journey_code for j in journeys if j.journey_code not in staging_rows]
+        if missing:
+            raise ValueError(f"{len(missing)} calibration journeys have no staging-log row (e.g. {missing[:3]}).")
 
-        # Load scales config if available
         scales_config = None
-        sc_file = Path(scales_path) if scales_path else DERIVED_DATA_DIR / "scales.json"
-        if not sc_file.exists():
-            sc_file = DERIVED_DATA_DIR.parent / "demo_data" / "synthetic_120" / "scales.json"
         if sc_file.exists():
             with open(sc_file, "r", encoding="utf-8") as f:
                 scales_config = json.load(f)
 
-        gate_cfg = None
-        if scales_config:
-            gate_cfg = {"scale": {"scales": scales_config.get("scales", {}), "sigma_g": 1.0}}
-        gate = QualityGate(config=gate_cfg)
-
-        cal_data = []
+        gts, omegas = [], []
         for j in journeys:
-            code = j.journey_code
-            if code in staging_rows:
-                om, exp, _ = derive_ground_truth(staging_rows[code])
-            else:
-                cell = j.metadata.get("assigned_cell", "intact")
-                if cell in ("intact", "permitted_flyer"):
-                    om, exp = "OBS_DETERMINABLE", "ATTR_CONFIRMED_LEGITIMATE"
-                elif cell == "forward_transit_damage":
-                    om, exp = "OBS_DETERMINABLE", "ATTR_STAGE_FORWARD_TRANSIT"
-                elif cell in ("doorstep_substitution", "customer_tamper"):
-                    om, exp = "OBS_DETERMINABLE", "ATTR_STAGE_CONSUMER_CUSTODY"
-                elif cell == "reverse_transit_tamper":
-                    om, exp = "OBS_DETERMINABLE", "ATTR_STAGE_REVERSE_TRANSIT"
-                elif cell == "degraded_evidence":
-                    om, exp = "OBS_DEGRADED_INCOMPLETE", "ATTR_ABSTAIN_DEGRADED"
-                elif cell == "ambiguous_evidence":
-                    om, exp = "OBS_INDISTINGUISHABLE", "ATTR_ABSTAIN_INDISTINGUISHABLE"
-                else:
-                    om, exp = "OBS_DETERMINABLE", "ATTR_CONFIRMED_LEGITIMATE"
+            om, exp, _ = derive_ground_truth(staging_rows[j.journey_code])
+            gts.append(canonicalize_label(exp))
+            omegas.append(om)
 
-            cps = {cp.cp_index: cp for cp in j.checkpoints}
-            cp1 = cps.get(1)
-            if not cp1 or len(cps) < 4:
-                continue
-
-            q_reports = {}
-            for k in (1, 2, 3, 4):
-                cp = cps.get(k)
-                prev_cp = cps.get(k - 1) if k > 1 else None
-                q_reports[k] = gate.evaluate(cp, previous_observation=prev_cp)
-
-            obs_k = {}
-            for k in (2, 3, 4):
-                cp_k = cps.get(k)
-                qr = q_reports[k]
-                q_weight = qr.feature_scores.get("q_weight", qr.feature_scores.get("q_scale", 1.0))
-                q_seal = qr.feature_scores.get("q_seal", qr.feature_scores.get("q_temporal", 1.0))
-                q_photo = qr.feature_scores.get("q_photo", qr.feature_scores.get("q_image", 1.0))
-
-                tare_delta = sum(
-                    cp.tare_delta_g
-                    for cp in j.checkpoints
-                    if cp.cp_index <= k and cp.permitted_packaging_change
-                )
-                w_anom, _, _ = reconcile_weights(
-                    cp1, cp_k, z=z_fit, scales_file_path=sc_file, cumulative_tare_delta_g=tare_delta
-                )
-                id_anom, _ = reconcile_identity(cp1, cp_k)
-                vis_anom, _ = reconcile_visual(cp1, cp_k, visual_threshold=visual_threshold_fit)
-
-                obs_k[k] = {
-                    "q_weight": q_weight,
-                    "q_seal": q_seal,
-                    "q_photo": q_photo,
-                    "weight_anom": w_anom,
-                    "id_anom": id_anom,
-                    "vis_anom": vis_anom,
-                    "has_weights": bool(cp_k.weights_g and cp1.weights_g and cp_k.scale_status in ("OK", "MANUAL", "SETTLED")),
-                    "has_seal": bool(cp_k.seal_qr or cp_k.serial or cp_k.imei),
-                    "has_photo": bool(cp_k.images),
-                    "has_glare": glare_reported(cp_k),
-                    "is_manual": identifiers_independent_of_photos(cp_k),
-                }
-
-            cal_data.append({
-                "code": code,
-                "omega": om,
-                "gt": canonicalize_label(exp),
-                "q_reports": q_reports,
-                "obs_k": obs_k,
-            })
-
-        if cal_data:
-            # Grid search theta over candidate grid constrained to [0.30 .. 0.90]
-            candidates = [round(x, 2) for x in np.arange(0.30, 0.91, 0.05)]
-            best_score = -1.0
-            best_theta = 0.70
-            best_acc = 0.0
-            best_aar = 0.0
-            best_uar = 1.0
-
-            for th in candidates:
-                preds = []
-                gts = []
-                omegas = []
-                for item in cal_data:
-                    gts.append(item["gt"])
-                    omegas.append(item["omega"])
-
-                    z_k = {1: "INTACT"}
-                    q_k = {1: item["q_reports"][1].q_k}
-
-                    for k in (2, 3, 4):
-                        d = item["obs_k"].get(k)
-                        if not d:
-                            z_k[k] = "UNK"
-                            q_k[k] = 0.0
-                            continue
-
-                        has_glare_cp = d.get("has_glare", False)
-                        q_p = min(d["q_photo"], 0.20) if has_glare_cp else d["q_photo"]
-                        t_p = (q_p >= th) and d["has_photo"]
-                        is_manual = d.get("is_manual", False)
-                        # A checkpoint whose photos are untrusted cannot read seal IDs
-                        t_s = (d["q_seal"] >= th) and d["has_seal"] and (t_p or is_manual)
-                        t_w = (d["q_weight"] >= th) and (d["weight_anom"] != "UNKNOWN") and d["has_weights"]
-
-                        anom = []
-                        agreed = []
-                        if t_w:
-                            (anom if d["weight_anom"] is True else agreed).append("weight")
-                        if t_s:
-                            (anom if d["id_anom"] else agreed).append("seal")
-                        if t_p:
-                            (anom if d["vis_anom"] else agreed).append("photo")
-
-                        if anom:
-                            z_k[k] = "ANOM"
-                        elif agreed:
-                            z_k[k] = "INTACT"
-                        else:
-                            z_k[k] = "UNK"
-
-                        # A checkpoint with untrusted photo AND untrusted/unknown weight -> untrusted
-                        if not t_p and not t_w:
-                            q_k[k] = 0.0
-                        else:
-                            trusted_scores = []
-                            if t_w:
-                                trusted_scores.append(d["q_weight"])
-                            if t_s:
-                                trusted_scores.append(d["q_seal"])
-                            if t_p:
-                                trusted_scores.append(q_p)
-                            q_k[k] = max(trusted_scores) if trusted_scores else 0.0
-
-                    glare_cps = [k for k in (2, 3, 4) if item["obs_k"].get(k, {}).get("has_glare", False)]
-                    other_anom = any(
-                        (item["obs_k"].get(k, {}).get("weight_anom") is True and (item["obs_k"].get(k, {}).get("q_weight", 0.0) >= th))
-                        or (item["obs_k"].get(k, {}).get("id_anom") and (item["obs_k"].get(k, {}).get("q_seal", 0.0) >= th) and (item["obs_k"].get(k, {}).get("q_photo", 0.0) >= th))
-                        for k in (2, 3, 4)
-                    )
-                    if len(glare_cps) >= 2 and not other_anom:
-                        preds.append("ATTR_ABSTAIN_INDISTINGUISHABLE")
-                    else:
-                        attr = attribute_interval_algorithm_1(item["code"], q_k=q_k, z_k=z_k, theta=th)
-                        preds.append(canonicalize_label(attr.label))
-
+        # Grid search with the evaluation pipeline itself, so fitting and testing cannot drift apart.
+        theta_grid = [round(x, 2) for x in np.arange(0.30, 0.91, 0.05)]
+        visual_grid = VISUAL_GRIDS[visual_method]
+        best_key = None
+        for vt in visual_grid:
+            for th in theta_grid:
+                preds = [
+                    canonicalize_label(predict_trinetra_link(
+                        j, theta=th, visual_threshold=vt, visual_method=visual_method,
+                        scales_config=scales_config, scales_path=sc_file if sc_file.exists() else None,
+                    ).label)
+                    for j in journeys
+                ]
                 acc, _, _ = compute_stage_accuracy(preds, gts, omegas)
                 abs_m = compute_abstention_metrics(preds, gts, omegas)
-                aar = abs_m["aar"]
-                uar = abs_m["uar"]
-                score = acc + aar
-
-                if score > best_score or (abs(score - best_score) < 1e-6 and uar < best_uar):
-                    best_score = score
-                    best_theta = float(np.clip(th, 0.30, 0.90))
-                    best_acc = acc
-                    best_aar = aar
-                    best_uar = uar
-
-            theta_fit = best_theta
-            fit_score = best_score
-            fit_acc = best_acc
-            fit_aar = best_aar
-            fit_uar = best_uar
+                score = acc + abs_m["aar"]
+                key = (score, -abs_m["uar"], -abs(th - 0.70), -abs(vt - visual_grid[len(visual_grid) // 2]))
+                if best_key is None or key > best_key:
+                    best_key = key
+                    theta_fit, visual_threshold_fit = float(th), float(vt)
+                    fit_score, fit_acc, fit_aar, fit_uar = score, acc, abs_m["aar"], abs_m["uar"]
 
     thresholds = {
         "theta": theta_fit,
         "z_weight": z_fit,
         "tau_bayes": tau_fit,
         "visual_threshold": visual_threshold_fit,
+        "visual_method": visual_method,
         "fit_score": round(fit_score, 4),
         "fit_det_acc": round(fit_acc, 4),
         "fit_non_det_aar": round(fit_aar, 4),

@@ -72,6 +72,7 @@ def fit_cmd(
     staging_log: Optional[str] = typer.Option(None, "--staging-log", help="Path to staging log CSV"),
     scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
     allow_synthetic_dry_run: bool = typer.Option(False, "--allow-synthetic-dry-run", help="Explicitly permit fitting using synthetic scale/floor fixtures"),
+    visual_method: str = typer.Option("global", "--visual-method", help="Visual reconciler: 'global' (preregistered 1 - SSIM) or 'local' (registered block-wise; needs a protocol amendment)"),
 ) -> None:
     """Fit quality, weight, visual, and Bayesian thresholds on calibration split."""
     if split != "calibration":
@@ -105,12 +106,13 @@ def fit_cmd(
             staging_log_path=staging_log,
             scales_path=scales,
             allow_synthetic_dry_run=allow_synthetic_dry_run,
+            visual_method=visual_method,
         )
         typer.secho(f"Successfully fitted thresholds: {res['saved_path']}", fg=typer.colors.GREEN)
         typer.echo(f"  theta (quality)   = {res['theta']:.2f}")
         typer.echo(f"  z (weight)        = {res['z_weight']:.2f}")
         typer.echo(f"  tau (bayes)       = {res['tau_bayes']:.2f}")
-        typer.echo(f"  visual_threshold  = {res['visual_threshold']:.2f}")
+        typer.echo(f"  visual_threshold  = {res['visual_threshold']:.2f} ({res['visual_method']})")
     except Exception as e:
         typer.secho(f"Fit failed: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2)
@@ -469,6 +471,8 @@ def eval_e1_cmd(
     mask: str = typer.Option("full", "--mask", help="Evidence mask: 'full' (all CP1-CP4 evidence) or 'field' (weights only at CP1 and CP4)"),
     db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
+    visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
     pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Primary Benchmark Comparison against baselines B1..B5 on test split (E1)."""
@@ -487,6 +491,8 @@ def eval_e1_cmd(
             allow_synthetic_dry_run=allow_synthetic_dry_run,
             mask=mask,
             theta=theta,
+            visual_threshold=visual_threshold,
+            visual_method=visual_method,
             store_path=db_path,
             allow_label_rebuild=pipeline_self_test,
         )
@@ -532,6 +538,8 @@ def eval_e2_cmd(
     scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
     db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
+    visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
     pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Controlled Perturbation Robustness Evaluation on test split (E2)."""
@@ -546,6 +554,8 @@ def eval_e2_cmd(
             output_dir=output,
             run_id=run_id,
             theta=theta,
+            visual_threshold=visual_threshold,
+            visual_method=visual_method,
             scales_path=scales,
             store_path=db_path,
             allow_label_rebuild=pipeline_self_test,
@@ -570,6 +580,8 @@ def eval_ablations_cmd(
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Experiment run ID"),
     db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
+    visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
     pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Architectural Component Ablation Study on test split (E3)."""
@@ -585,6 +597,8 @@ def eval_ablations_cmd(
             output_dir=output,
             run_id=run_id,
             theta=theta,
+            visual_threshold=visual_threshold,
+            visual_method=visual_method,
             store_path=db_path,
             allow_label_rebuild=pipeline_self_test,
         )
@@ -609,17 +623,19 @@ def eval_all_cmd(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Base output results directory"),
     db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
+    visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
 ) -> None:
     """Run all empirical experiments (E1, E2, E3) in sequence on the test split."""
     typer.echo("=== Starting Experiment E1: Primary Comparison ===")
     eval_e1_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None, bootstrap=2000,
-                allow_synthetic_dry_run=False, mask="full", db_path=db_path, theta=theta, pipeline_self_test=False)
+                allow_synthetic_dry_run=False, mask="full", db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
     typer.echo("\n=== Starting Experiment E2: Perturbations ===")
     eval_e2_cmd(split=split, manifest=manifest, staging_log=staging_log, output=output, run_id=None,
-                scales=scales, db_path=db_path, theta=theta, pipeline_self_test=False)
+                scales=scales, db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
     typer.echo("\n=== Starting Experiment E3: Architectural Ablations ===")
     eval_ablations_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None,
-                       db_path=db_path, theta=theta, pipeline_self_test=False)
+                       db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
     typer.secho("\n[SUCCESS] All empirical evaluations (E1, E2, E3) completed successfully.", fg=typer.colors.GREEN)
 
 

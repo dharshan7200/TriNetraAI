@@ -141,6 +141,8 @@ def evaluate_e1(
     is_demo_run: bool = False,
     skip_llm_if_no_key: bool = False,
     theta: Optional[float] = None,
+    visual_threshold: float = 0.25,
+    visual_method: str = "global",
     mask: str = "full",
     store_path: Optional[Path | str] = None,
     allow_label_rebuild: bool = False,
@@ -344,8 +346,8 @@ def evaluate_e1(
     # 4. Method Evaluators
     active_theta = theta if theta is not None else 0.70
     methods: Dict[str, Callable[[Journey], Any]] = {
-        "TriNetra-Link (Alg 1)": lambda j: predict_trinetra_link(j, mode="algorithm1", theta=active_theta, scales_config=scales_config, scales_path=sc_path),
-        "TriNetra-Link (Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", theta=active_theta, scales_config=scales_config, scales_path=sc_path),
+        "TriNetra-Link (Alg 1)": lambda j: predict_trinetra_link(j, mode="algorithm1", theta=active_theta, visual_threshold=visual_threshold, visual_method=visual_method, scales_config=scales_config, scales_path=sc_path),
+        "TriNetra-Link (Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", theta=active_theta, visual_threshold=visual_threshold, visual_method=visual_method, scales_config=scales_config, scales_path=sc_path),
         "B1 (CP4-only)": predict_b1_cp4,
         "B2 (Endpoints CP1+CP4)": predict_b2_endpoints,
         "B3 (Detection=Origin)": predict_b3_unlinked,
