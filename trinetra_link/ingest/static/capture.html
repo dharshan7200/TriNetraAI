@@ -149,20 +149,20 @@
       <div class="row">
         <div>
           <label>Journey Code</label>
-          <input type="text" id="journey_code" placeholder="JRN-2026-0001" value="JRN-2026-0001">
+          <input type="text" id="journey_code" placeholder="JRN-2026-0001" value="">
         </div>
         <div>
           <label>Sequence</label>
           <select id="cp_index">
-            <option value="1">CP1: Origin Dispatch</option>
-            <option value="2">CP2: Intermediate Hub</option>
-            <option value="3">CP3: Destination Hub</option>
-            <option value="4">CP4: Doorstep / Return</option>
+            <option value="1">CP1: Origin hub (intake)</option>
+            <option value="2">CP2: Carrier facility</option>
+            <option value="3">CP3: Customer doorstep / return pickup</option>
+            <option value="4">CP4: Return processing hub</option>
           </select>
         </div>
       </div>
       <label>Device Token (X-Device-Token)</label>
-      <input type="password" id="device_token" value="trinetra-dev-capture-token">
+      <input type="password" id="device_token" value="" placeholder="Token issued for this device">
     </div>
 
     <!-- Step 2: Camera & Photos -->
@@ -198,21 +198,21 @@
       <div class="row">
         <div>
           <label>Reading 1</label>
-          <input type="number" step="0.1" id="w1" placeholder="500.0" value="500.0">
+          <input type="number" step="0.1" id="w1" placeholder="500.0" value="">
         </div>
         <div>
           <label>Reading 2</label>
-          <input type="number" step="0.1" id="w2" placeholder="500.1" value="500.1">
+          <input type="number" step="0.1" id="w2" placeholder="500.1" value="">
         </div>
         <div>
           <label>Reading 3</label>
-          <input type="number" step="0.1" id="w3" placeholder="500.0" value="500.0">
+          <input type="number" step="0.1" id="w3" placeholder="500.0" value="">
         </div>
       </div>
       <div class="row">
         <div>
           <label>Scale ID</label>
-          <input type="text" id="scale_id" value="SCALE-MANUAL-01">
+          <input type="text" id="scale_id" value="" placeholder="ID on the scale label">
         </div>
         <div>
           <label>Scale Status</label>
@@ -243,16 +243,50 @@
     <div class="card">
       <h2>4. Physical Seal & Serial Identity</h2>
       <label>Tamper-Evident Seal QR Code</label>
-      <input type="text" id="seal_qr" placeholder="Scan or enter seal QR payload" value="SEAL-TEST-001">
+      <input type="text" id="seal_qr" placeholder="Scan or enter seal QR payload" value="">
       <div class="row">
         <div>
           <label>Serial Number</label>
-          <input type="text" id="serial" placeholder="Serial No." value="SN-882201">
+          <input type="text" id="serial" placeholder="Serial No." value="">
         </div>
         <div>
           <label>IMEI (if cellular)</label>
           <input type="text" id="imei" placeholder="Optional IMEI">
         </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>How were seal, serial and IMEI obtained?</label>
+          <select id="identifier_source">
+            <option value="scanned">Scanned (QR / barcode reader)</option>
+            <option value="typed">Typed from the label</option>
+            <option value="photo">Read off the photos</option>
+          </select>
+        </div>
+        <div>
+          <label>Glare over a seal or defect?</label>
+          <select id="glare_reported">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
+      </div>
+      <label>Layered seals (leave a layer blank if it is not present at this checkpoint)</label>
+      <div class="row">
+        <div><input type="text" id="seal_L1_FWD" placeholder="L1 forward flyer seal ID"></div>
+        <div><select id="seal_L1_FWD_state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <div class="row">
+        <div><input type="text" id="seal_L1_RET" placeholder="L1 return flyer seal ID"></div>
+        <div><select id="seal_L1_RET_state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <div class="row">
+        <div><input type="text" id="seal_L2_BOX" placeholder="L2 box sticker ID"></div>
+        <div><select id="seal_L2_BOX_state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <div class="row">
+        <div><input type="text" id="seal_L3_ITEM" placeholder="L3 item tag ID"></div>
+        <div><select id="seal_L3_ITEM_state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
       </div>
       <label>Carrier Custody Log Notes</label>
       <textarea id="carrier_log" rows="2" placeholder="Hub transit notes, carrier signature, seal condition"></textarea>
@@ -361,20 +395,18 @@
 
       if (!code) return alert('Journey code is required');
       if (capturedPhotos.length === 0) {
-        // Fallback: create mock blank 640x480 photo if on desktop testing without camera
-        canvas.width = 640; canvas.height = 480;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#64748b'; ctx.fillRect(0, 0, 640, 480);
-        ctx.fillStyle = '#f8fafc'; ctx.fillText('TriNetra Reference Frame', 200, 240);
-        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg'));
-        const buffer = await blob.arrayBuffer();
-        const sha256 = await computeSHA256(buffer);
-        capturedPhotos.push({ side: 'front', blob, sha256, filename: 'front.jpg' });
+        // Never substitute a generated image: every checkpoint needs real photographs.
+        return alert('Capture at least one photo of the parcel before submitting.');
       }
 
-      const w1 = parseFloat(document.getElementById('w1').value) || 0;
-      const w2 = parseFloat(document.getElementById('w2').value) || 0;
-      const w3 = parseFloat(document.getElementById('w3').value) || 0;
+      const scaleStatus = document.getElementById('scale_status').value;
+      const readings = ['w1', 'w2', 'w3']
+        .map(id => document.getElementById(id).value.trim())
+        .filter(v => v !== '')
+        .map(v => parseFloat(v));
+      if (scaleStatus !== 'ERROR' && (readings.length < 3 || readings.some(w => !(w > 0)))) {
+        return alert('Enter three positive weight readings, or set the scale status to ERROR if the scale failed.');
+      }
 
       const metadata = {
         journey_code: code,
@@ -382,13 +414,23 @@
         ts_utc: new Date().toISOString(),
         device_id: 'BROWSER-CLIENT-01',
         operator_id: 'FIELD-OP',
-        weights_g: [w1, w2, w3],
+        weights_g: scaleStatus === 'ERROR' ? [] : readings,
         scale_id: document.getElementById('scale_id').value.trim(),
         scale_status: document.getElementById('scale_status').value,
         seal_qr: document.getElementById('seal_qr').value.trim() || null,
         serial: document.getElementById('serial').value.trim() || null,
         imei: document.getElementById('imei').value.trim() || null,
         carrier_log: document.getElementById('carrier_log').value.trim() || null,
+        identifier_source: document.getElementById('identifier_source').value,
+        glare_reported: document.getElementById('glare_reported').value === 'true',
+        seals: ['L1_FWD', 'L1_RET', 'L2_BOX', 'L3_ITEM']
+          .map(layer => {
+            const id = document.getElementById('seal_' + layer).value.trim();
+            const state = document.getElementById('seal_' + layer + '_state').value;
+            if (!id && state === 'INTACT') return null;  // layer not present at this checkpoint
+            return { layer: layer, seal_id_read: id || null, state: state };
+          })
+          .filter(s => s !== null),
         permitted_packaging_change: document.getElementById('permitted_change').value === 'true',
         tare_delta_g: parseFloat(document.getElementById('tare_delta').value) || 0.0,
         client_hashes: {}

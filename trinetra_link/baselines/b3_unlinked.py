@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import Optional
 from trinetra_link.schema.models import Attribution, CheckpointObservation, Journey
 
 
@@ -40,8 +39,11 @@ def predict_b3_unlinked(journey: Journey) -> Attribution:
             if cp.cp_index <= k and cp.permitted_packaging_change
         )
 
-        w_k = float(np.mean(cp_k.weights_g)) if cp_k.weights_g else 0.0
-        weight_diff = abs(w_k - w1 - tare_k)
+        # A checkpoint without weights gives no weight evidence (it is not a 0 g reading)
+        if cp_k.weights_g and cp1.weights_g:
+            weight_diff = abs(float(np.mean(cp_k.weights_g)) - w1 - tare_k)
+        else:
+            weight_diff = 0.0
 
         is_weight_anomaly = (weight_diff > 2.0)
         is_seal_anomaly = bool(cp1.seal_qr and cp_k.seal_qr and cp1.seal_qr != cp_k.seal_qr)

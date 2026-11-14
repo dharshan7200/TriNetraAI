@@ -4,14 +4,12 @@ import csv
 from datetime import datetime, timezone, timedelta
 import hashlib
 import json
-import math
-import os
 from pathlib import Path
 import random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from trinetra_link.config import REPO_ROOT
 from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey, SealObservation
@@ -117,8 +115,8 @@ def render_synthetic_box_image(
         # Shipping details
         draw.text((170, 175), f"JOURNEY:  {journey_code}", fill=(20, 20, 20))
         draw.text((170, 195), f"SERIAL:   {serial_no}", fill=(20, 20, 20))
-        draw.text((170, 215), f"ORIGIN:   DELHI HUB-01", fill=(60, 60, 60))
-        draw.text((170, 235), f"DEST:     BOM GATEWAY-04", fill=(60, 60, 60))
+        draw.text((170, 215), "ORIGIN:   DELHI HUB-01", fill=(60, 60, 60))
+        draw.text((170, 235), "DEST:     BOM GATEWAY-04", fill=(60, 60, 60))
 
         # Barcode stripes
         bx = 170
@@ -390,11 +388,9 @@ def generate_synthetic_dryrun_dataset(
                 noise = np_rng.normal(0.0, scale_sigma, size=3)
                 readings = [round(float(max(1.0, w_curr + n)), 2) for n in noise]
 
-            # Seal identifier (legacy seal_qr)
-            if is_tampered_state and cell in ("doorstep_substitution", "customer_tamper", "reverse_transit_tamper", "degraded_evidence"):
-                seal_qr = f"SEAL-VOID-{code[-4:]}"
-            else:
-                seal_qr = orig_seal
+            # Single legacy seal QR stays constant: tampering is carried by the layered seals (L1/L2/L3)
+            # so that the layered-seal reconciler, not a duplicate identifier, has to find it.
+            seal_qr = orig_seal
 
             carrier_notes = "Camera glare over defect" if is_cp_glare else ""
 
@@ -532,6 +528,7 @@ def generate_synthetic_dryrun_dataset(
                 serial=serial_no,
                 imei=imei_no,
                 carrier_log=carrier_notes,
+                glare_reported=is_cp_glare,
                 permitted_packaging_change=is_permitted,
                 tare_delta_g=tare_delta if is_permitted else 0.0,
                 images=cp_images,
@@ -663,7 +660,6 @@ def generate_synthetic_dryrun_dataset(
 
 
 if __name__ == "__main__":
-    import sys
     print("Generating synthetic dry-run study dataset (120 journeys)...")
     res = generate_synthetic_dryrun_dataset()
     print(f"Generated {res['n_journeys']} synthetic journeys -> {res['output_dir']}")

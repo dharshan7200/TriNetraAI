@@ -15,10 +15,7 @@ from trinetra_link.staging.commit import commit_ground_truth_manifest
 from trinetra_link.staging.determinability import derive_ground_truth, get_determinability_rule_hash
 from trinetra_link.staging.log import StagingLogRecord, append_staging_log_entry, load_staging_log
 from trinetra_link.staging.pilot import (
-    evaluate_checkpoint_capture_quality,
-    evaluate_journey_capture_quality,
     evaluate_pilot_journeys,
-    load_frozen_quality_floors,
 )
 from trinetra_link.staging.split import CALIBRATION_QUOTAS, perform_stratified_split
 
@@ -395,9 +392,11 @@ def test_cli_scale_and_staging_commands(tmp_path: Path):
 
     # 9. Pilot check
     floors_out = tmp_path / "frozen_floors.json"
+    # Without a captured pilot file the gate must refuse rather than invent journeys
     res_pilot = runner.invoke(app, [
         "pilot", "check",
         "-o", str(floors_out),
     ])
-    assert res_pilot.exit_code == 0
-    assert "Gate G-3 Status:     PASSED" in res_pilot.stdout
+    assert res_pilot.exit_code == 2
+    assert "Pilot check refused" in res_pilot.output
+    assert not floors_out.exists()

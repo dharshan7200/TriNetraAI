@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from trinetra_link.config import DERIVED_DATA_DIR, REPO_ROOT, RESULTS_DIR
-from trinetra_link.eval.e1 import generate_benchmark_journey_from_staging
+from trinetra_link.eval.loading import SELF_TEST_WATERMARK, load_evaluation_journeys
 from trinetra_link.eval.metrics import (
     compute_abstention_metrics,
     compute_macro_f1,
@@ -19,7 +19,7 @@ from trinetra_link.eval.metrics import (
 )
 from trinetra_link.eval.pipeline import canonicalize_label, predict_trinetra_link
 from trinetra_link.schema.models import Journey
-from trinetra_link.staging.determinability import derive_ground_truth, get_determinability_rule_hash
+from trinetra_link.staging.determinability import derive_ground_truth
 from trinetra_link.staging.log import load_staging_log
 
 
@@ -29,6 +29,9 @@ def evaluate_e3(
     scales_path: Optional[Path | str] = None,
     output_dir: Optional[Path | str] = None,
     run_id: Optional[str] = None,
+    theta: float = 0.70,
+    store_path: Optional[Path | str] = None,
+    allow_label_rebuild: bool = False,
 ) -> Dict[str, Any]:
     """
     Execute Experiment E3: Architectural Ablation Analysis.
@@ -65,7 +68,7 @@ def evaluate_e3(
                     r["manipulation_interval"] = r.get("target_interval", "none")
 
     test_staging = [r for r in staging_rows if r["journey_code"] in test_codes]
-    test_journeys = [generate_benchmark_journey_from_staging(r) for r in test_staging]
+    test_journeys = load_evaluation_journeys(test_staging, store_path=store_path, allow_label_rebuild=allow_label_rebuild)
 
     # Load scales config
     scales_config = None
@@ -85,14 +88,15 @@ def evaluate_e3(
         ground_truths.append(canonicalize_label(exp_label))
         omega_stars.append(omega_star)
 
-    # Ablation configurations
+    # Ablation configurations: every variant uses the same fitted theta and scale noise model
+    common = {"theta": theta, "scales_config": scales_config}
     ablation_configs: Dict[str, Callable[[Journey], Any]] = {
-        "TriNetra-Link (Full - Alg 1)": lambda j: predict_trinetra_link(j, mode="algorithm1", scales_config=scales_config),
-        "TriNetra-Link (Full - Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", scales_config=scales_config),
-        "Ablation: No Quality Gate (q=1)": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_quality_gate=True),
-        "Ablation: No Visual Reconciler": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_visual=True),
-        "Ablation: No Seals": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_seals=True),
-        "Ablation: Fixed 2g Weight Thresh": lambda j: predict_trinetra_link(j, mode="algorithm1", fixed_weight_threshold=2.0),
+        "TriNetra-Link (Full - Alg 1)": lambda j: predict_trinetra_link(j, mode="algorithm1", **common),
+        "TriNetra-Link (Full - Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", **common),
+        "Ablation: No Quality Gate (q=1)": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_quality_gate=True, **common),
+        "Ablation: No Visual Reconciler": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_visual=True, **common),
+        "Ablation: No Layered Seals": lambda j: predict_trinetra_link(j, mode="algorithm1", disable_seals=True, **common),
+        "Ablation: Fixed 2g Weight Thresh": lambda j: predict_trinetra_link(j, mode="algorithm1", fixed_weight_threshold=2.0, **common),
     }
 
     results_table: List[Dict[str, Any]] = []
@@ -126,6 +130,8 @@ def evaluate_e3(
     # Save CSV and LaTeX Tables
     csv_path = target_dir / "table_e3_ablations.csv"
     with open(csv_path, "w", encoding="utf-8") as fp:
+        if allow_label_rebuild:
+            fp.write(f"# {SELF_TEST_WATERMARK}\n")
         fp.write("Model Variant,Stage Acc (DET),Macro-F1 (S1-S3),AAR (Non-DET),UBR (Non-DET),UAR (DET),AURC\n")
         for r in results_table:
             fp.write(f"{r['model_variant']},{r['stage_acc_det']},{r['macro_f1']},{r['aar_non_det']},{r['ubr_non_det']},{r['uar_det']},{r['aurc']}\n")
@@ -176,6 +182,11 @@ def evaluate_e3(
             "figure_pdf": str(fig_pdf),
         },
     }
+
+    manifest["theta"] = theta
+    manifest["journeys_from"] = "label rebuild (self-test)" if allow_label_rebuild else "captured store"
+    if allow_label_rebuild:
+        manifest["watermark"] = SELF_TEST_WATERMARK
 
     with open(target_dir / "provenance.json", "w", encoding="utf-8") as fp:
         json.dump(manifest, fp, indent=2)

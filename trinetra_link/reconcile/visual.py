@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
-from trinetra_link.schema.models import CheckpointObservation, ImageRef
+from trinetra_link.schema.models import CheckpointObservation
 
 
 def order_corner_points(pts: np.ndarray) -> np.ndarray:

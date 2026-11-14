@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -14,8 +13,8 @@ from trinetra_link.baselines.b3_unlinked import predict_b3_unlinked
 from trinetra_link.baselines.b4_llm_judge import predict_b4_llm_judge
 from trinetra_link.baselines.b5_v3_rules import predict_b5_v3_rules
 from trinetra_link.cli import app
-from trinetra_link.eval.e1 import evaluate_e1, generate_benchmark_journey_from_staging
-from trinetra_link.eval.e2 import evaluate_e2, perturb_drop_checkpoint, perturb_scale_drift
+from trinetra_link.eval.e1 import evaluate_e1
+from trinetra_link.eval.e2 import evaluate_e2
 from trinetra_link.eval.e3 import evaluate_e3
 from trinetra_link.eval.metrics import (
     bootstrap_metric_ci,
@@ -25,7 +24,6 @@ from trinetra_link.eval.metrics import (
     compute_stage_accuracy,
     exact_mcnemar_test,
 )
-from trinetra_link.eval.pipeline import canonicalize_label, predict_trinetra_link
 from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey
 from trinetra_link.staging.assign import assign_staging_cells
 from trinetra_link.staging.split import perform_stratified_split
@@ -189,6 +187,7 @@ def test_experiments_e1_e2_e3_integration(tmp_path: Path):
         staging_log_path=res_assign["csv_path"],
         output_dir=e1_dir,
         b_bootstrap=100,  # Fast bootstrap for test suite
+        allow_label_rebuild=True,
     )
     expected_methods = 7 if os.environ.get("GROQ_API_KEY") else 6
     assert len(e1_res["results_summary"]) == expected_methods
@@ -203,6 +202,7 @@ def test_experiments_e1_e2_e3_integration(tmp_path: Path):
         split_manifest_path=split_manifest,
         staging_log_path=res_assign["csv_path"],
         output_dir=e2_dir,
+        allow_label_rebuild=True,
     )
     assert e2_res["conditions_evaluated"] >= 10
     assert Path(e2_res["artifacts"]["csv_table"]).exists()
@@ -214,6 +214,7 @@ def test_experiments_e1_e2_e3_integration(tmp_path: Path):
         split_manifest_path=split_manifest,
         staging_log_path=res_assign["csv_path"],
         output_dir=e3_dir,
+        allow_label_rebuild=True,
     )
     assert len(e3_res["results"]) == 6
     assert Path(e3_res["artifacts"]["csv_table"]).exists()
@@ -234,6 +235,7 @@ def test_cli_eval_commands(tmp_path: Path):
         "--staging-log", str(res_assign["csv_path"]),
         "-o", str(tmp_path / "cli_e1"),
         "-b", "50",
+        "--pipeline-self-test",
     ])
     assert res_e1.exit_code == 0, f"res_e1 failed: {res_e1.output}"
     assert "Experiment E1 Completed Successfully" in res_e1.stdout
@@ -245,6 +247,7 @@ def test_cli_eval_commands(tmp_path: Path):
         "-m", str(split_manifest),
         "--staging-log", str(res_assign["csv_path"]),
         "-o", str(tmp_path / "cli_e2"),
+        "--pipeline-self-test",
     ])
     assert res_e2.exit_code == 0, f"res_e2 failed: {res_e2.output}"
     assert "Experiment E2 Completed Successfully" in res_e2.stdout
@@ -256,6 +259,7 @@ def test_cli_eval_commands(tmp_path: Path):
         "-m", str(split_manifest),
         "--staging-log", str(res_assign["csv_path"]),
         "-o", str(tmp_path / "cli_e3"),
+        "--pipeline-self-test",
     ])
     assert res_e3.exit_code == 0, f"res_e3 failed: {res_e3.output}"
     assert "Experiment E3 Completed Successfully" in res_e3.stdout
@@ -274,6 +278,7 @@ def test_e1_mask_full_and_field(tmp_path: Path):
         output_dir=tmp_path / "mask_test",
         b_bootstrap=50,
         mask="full",
+        allow_label_rebuild=True,
     )
     assert (tmp_path / "mask_test" / "table3_full.csv").exists()
     assert (tmp_path / "mask_test" / "table3_subgroups_full.csv").exists()
@@ -287,8 +292,51 @@ def test_e1_mask_full_and_field(tmp_path: Path):
         output_dir=tmp_path / "mask_test",
         b_bootstrap=50,
         mask="field",
+        allow_label_rebuild=True,
     )
     assert (tmp_path / "mask_test" / "table3_field.csv").exists()
     assert (tmp_path / "mask_test" / "table3_subgroups_field.csv").exists()
     assert res_field["mask"] == "field"
     assert len(res_field["subgroup_breakdowns"]) > 0
+
+
+def test_experiments_refuse_label_built_journeys(tmp_path: Path):
+    """Experiments must run on captured journeys: with an empty store they refuse instead of rebuilding from labels."""
+    from trinetra_link.eval.loading import MissingCapturedJourneysError
+
+    res_assign = assign_staging_cells(n=120, seed=42, output_dir=tmp_path / "restricted")
+    split_manifest = tmp_path / "split_manifest.json"
+    perform_stratified_split(assignments_csv_path=res_assign["csv_path"], seed=42, output_path=split_manifest)
+    empty_store = tmp_path / "empty.sqlite"
+    for fn in (evaluate_e1, evaluate_e2, evaluate_e3):
+        kwargs = {"split_manifest_path": split_manifest, "staging_log_path": res_assign["csv_path"],
+                  "output_dir": tmp_path / fn.__name__, "store_path": empty_store}
+        if fn is evaluate_e1:
+            kwargs["b_bootstrap"] = 10
+        with pytest.raises(MissingCapturedJourneysError):
+            fn(**kwargs)
+
+
+def test_e2_blur_changes_pixels(tmp_path: Path):
+    """Blur and darkening must change the stored photos, not just annotate the operator note."""
+    import cv2
+    import numpy as np
+    from trinetra_link.eval.e2 import perturb_blur, perturb_gamma_darkening
+    from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey
+
+    img = (np.indices((480, 640)).sum(axis=0) % 32 * 8).astype(np.uint8)
+    img = np.dstack([img] * 3)
+    src = tmp_path / "cp2.png"
+    cv2.imwrite(str(src), img)
+    cp = CheckpointObservation(journey_code="J-1", cp_index=2, ts_utc="2026-10-01T00:00:00Z", device_id="d",
+                               operator_id="o", scale_id="S", weights_g=[500, 500, 500],
+                               images=[ImageRef(side="TOP", path=str(src), sha256="0" * 64, w=640, h=480)])
+    journey = Journey(journey_code="J-1", checkpoints=[cp])
+    blurred = perturb_blur(journey, 4.0, target_cp=2, out_dir=tmp_path / "out")
+    darkened = perturb_gamma_darkening(journey, 4.0, target_cp=2, out_dir=tmp_path / "out")
+    for j in (blurred, darkened):
+        new_ref = j.checkpoints[0].images[0]
+        assert new_ref.path != str(src)
+        assert not np.array_equal(cv2.imread(new_ref.path), img)
+        assert (j.checkpoints[0].carrier_log or "") == ""
+    assert journey.checkpoints[0].images[0].path == str(src)

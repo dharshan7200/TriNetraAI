@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import numpy as np
-import pytest
 from trinetra_link.quality.features import (
     compute_image_quality_features,
     evaluate_scale_readings,

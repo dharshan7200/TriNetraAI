@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from trinetra_link.config import REPO_ROOT
-from trinetra_link.schema.models import Attribution, CheckpointObservation, Journey
+from trinetra_link.schema.models import Attribution, Journey
 
 PROMPT_TEMPLATE_PATH = REPO_ROOT / "baselines" / "prompts" / "llm_judge_v1.txt"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"

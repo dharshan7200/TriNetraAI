@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from trinetra_link.config import DERIVED_DATA_DIR, RESULTS_DIR
+from trinetra_link.quality.provenance import glare_reported, identifiers_independent_of_photos
 from trinetra_link.schema.models import Journey
 
 
@@ -32,6 +33,11 @@ def fit_thresholds(
     if split_name != allowed_split_prefix:
         raise ValueError(
             f"FITTING ISOLATION VIOLATION: Thresholds may only be fitted on '{allowed_split_prefix}', got '{split_name}'."
+        )
+
+    if not journeys:
+        raise ValueError(
+            "NO CALIBRATION DATA: fitting needs the captured calibration journeys; refusing to write default thresholds."
         )
 
     # Check synthetic provenance guards on scales.json
@@ -182,8 +188,8 @@ def fit_thresholds(
                     "has_weights": bool(cp_k.weights_g and cp1.weights_g and cp_k.scale_status in ("OK", "MANUAL", "SETTLED")),
                     "has_seal": bool(cp_k.seal_qr or cp_k.serial or cp_k.imei),
                     "has_photo": bool(cp_k.images),
-                    "has_glare": "glare" in (cp_k.carrier_log or "").lower(),
-                    "is_manual": "manual" in (cp_k.carrier_log or "").lower(),
+                    "has_glare": glare_reported(cp_k),
+                    "is_manual": identifiers_independent_of_photos(cp_k),
                 }
 
             cal_data.append({

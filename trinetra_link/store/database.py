@@ -9,13 +9,11 @@ from trinetra_link.config import DATA_DIR, RESTRICTED_DATA_DIR
 from trinetra_link.schema.models import (
     Attribution,
     CheckpointObservation,
-    GroundTruth,
     ImageRef,
     Journey,
     QualityReport,
     ReconcileResult,
     SealObservation,
-    StagingLogEntry,
 )
 from trinetra_link.store.tables import (
     AttributionRecord,
@@ -23,7 +21,6 @@ from trinetra_link.store.tables import (
     JourneyRecord,
     QualityRecord,
     ReconcileRecord,
-    StagingTruthRecord,
 )
 
 DEFAULT_DB_PATH = DATA_DIR / "trinetra_store.sqlite"
@@ -110,6 +107,8 @@ class Store:
                 serial=cp.serial,
                 imei=cp.imei,
                 carrier_log=cp.carrier_log,
+                identifier_source=cp.identifier_source,
+                glare_reported=cp.glare_reported,
                 permitted_packaging_change=cp.permitted_packaging_change,
                 tare_delta_g=cp.tare_delta_g,
                 app_version=cp.app_version,
@@ -146,6 +145,8 @@ class Store:
                         serial=r.serial,
                         imei=r.imei,
                         carrier_log=r.carrier_log,
+                        identifier_source=getattr(r, "identifier_source", None),
+                        glare_reported=getattr(r, "glare_reported", None),
                         permitted_packaging_change=r.permitted_packaging_change,
                         tare_delta_g=r.tare_delta_g,
                         app_version=r.app_version,

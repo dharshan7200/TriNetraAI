@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
 from trinetra_link.attribution.bayes import attribute_bayes
 from trinetra_link.attribution.interval import attribute_interval_algorithm_1
 from trinetra_link.quality.gate import QualityGate
-from trinetra_link.reconcile.fuse import fuse_checkpoint_observations
+from trinetra_link.quality.provenance import glare_reported, identifiers_independent_of_photos
 from trinetra_link.reconcile.identity import reconcile_identity
 from trinetra_link.reconcile.seals import determine_breach_depth, reconcile_seal_layers
 from trinetra_link.reconcile.visual import reconcile_visual
 from trinetra_link.reconcile.weight import reconcile_weights
-from trinetra_link.schema.models import Attribution, CheckpointObservation, Journey, QualityReport
+from trinetra_link.schema.models import Attribution, Journey, QualityReport
 
 
 def canonicalize_label(label: str) -> str:
@@ -164,11 +164,11 @@ def predict_trinetra_link(
             )
 
         # Checkpoint-level glare over defect
-        has_glare_cp = "glare" in (cp_k.carrier_log or "").lower()
+        has_glare_cp = glare_reported(cp_k)
         if has_glare_cp:
             q_photo = min(q_photo, 0.20)
 
-        is_human_typed = "manual" in (cp_k.carrier_log or "").lower()
+        is_human_typed = identifiers_independent_of_photos(cp_k)
         trusted_photo = (q_photo >= theta) and bool(cp_k.images) and not disable_visual
 
         # Rule: A checkpoint whose photos are untrusted (dark or blurred) cannot read seal IDs
@@ -177,7 +177,9 @@ def predict_trinetra_link(
             trusted_seal = False
             q_seal = 0.0
         else:
-            trusted_seal = (q_seal >= theta) and bool(cp_k.seal_qr or cp_k.serial or cp_k.imei or cp_k.seals)
+            trusted_seal = (q_seal >= theta) and bool(
+                cp_k.seal_qr or cp_k.serial or cp_k.imei or (cp_k.seals and not disable_seals)
+            )
 
         trusted_weight = (
             (q_weight >= theta)
@@ -188,7 +190,7 @@ def predict_trinetra_link(
         )
 
         weight_obs = "ANOM" if weight_anom is True else ("INTACT" if weight_anom is False else "UNK")
-        seal_obs = "ANOM" if (identity_anom and not disable_seals) else "INTACT"
+        seal_obs = "ANOM" if identity_anom else "INTACT"
         photo_obs = "ANOM" if visual_anom else "INTACT"
 
         modality_evidence[k] = {
@@ -214,11 +216,13 @@ def predict_trinetra_link(
 
         if trusted_weight:
             (anomalies_present if weight_anom is True else agreements_present).append("weight")
-        if trusted_seal and not disable_seals:
+        if trusted_seal:
+            # Seal QR, serial and IMEI identity is always checked; disable_seals removes only the layered seals.
             if identity_anom:
                 anomalies_present.append("seal")
             else:
                 agreements_present.append("seal")
+        if trusted_seal and not disable_seals:
             for l_name, l_st in seal_layers.items():
                 if l_st == "ANOM":
                     anomalies_present.append(f"seal_{l_name}")
@@ -244,7 +248,7 @@ def predict_trinetra_link(
 
     # Rule: Glare over defect at bounding checkpoints -> photo modality untrusted there ->
     # ABSTAIN_INDISTINGUISHABLE when no other trusted modality shows the change.
-    glare_cps = [k for k in (2, 3, 4) if k in cps and "glare" in (cps[k].carrier_log or "").lower()]
+    glare_cps = [k for k in (2, 3, 4) if k in cps and glare_reported(cps[k])]
     other_trusted_anom = any(
         modality_evidence.get(k, {}).get("weight", ("UNK", 0.0))[0] == "ANOM"
         or modality_evidence.get(k, {}).get("seal", ("UNK", 0.0))[0] == "ANOM"

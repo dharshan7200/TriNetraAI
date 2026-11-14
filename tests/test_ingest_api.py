@@ -3,14 +3,11 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import os
-from pathlib import Path
 import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
 
 from trinetra_link.ingest.api import app, DEFAULT_DEV_TOKEN
-from trinetra_link.store.database import Store
 
 
 @pytest.fixture
@@ -203,3 +200,17 @@ def test_full_cp1_to_cp2_lifecycle_and_reconciliation(client):
     journey_data = res_get.json()
     assert journey_data["checkpoints_count"] == 2
     assert len(journey_data["journey"]["checkpoints"]) == 2
+
+
+def test_capture_refused_when_token_not_configured(tmp_path, monkeypatch):
+    """Without DEVICE_INGEST_TOKEN the service accepts no observations, even with the example token."""
+    monkeypatch.setenv("TRINETRA_DB_PATH", str(tmp_path / "s.sqlite"))
+    monkeypatch.delenv("DEVICE_INGEST_TOKEN", raising=False)
+    c = TestClient(app)
+    res = c.post("/journeys", json={"journey_code": "JRN-X", "checkpoints": []}, headers={"X-Device-Token": DEFAULT_DEV_TOKEN})
+    assert res.status_code == 503
+
+
+def test_token_in_query_string_is_not_accepted(client):
+    res = client.post(f"/journeys?token={DEFAULT_DEV_TOKEN}", json={"journey_code": "JRN-Q", "checkpoints": []})
+    assert res.status_code == 401

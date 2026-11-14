@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from trinetra_link.quality.features import compute_laplacian_variance_kotlin
 
 

@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from trinetra_link.config import DERIVED_DATA_DIR, REPO_ROOT
-from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey
+from trinetra_link.schema.models import CheckpointObservation, Journey
 
 DEFAULT_FROZEN_FLOORS_PATH = DERIVED_DATA_DIR / "frozen_quality_floors.json"
 

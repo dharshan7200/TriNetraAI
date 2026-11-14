@@ -11,7 +11,6 @@ Ensures that:
 
 import os
 import glob
-import re
 import pandas as pd
 import pytest
 

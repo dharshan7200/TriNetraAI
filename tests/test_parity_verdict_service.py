@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from trinetra_link.reconcile.identity import (
     ConflictType,
     DecisionStatus,

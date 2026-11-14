@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trinetra-link"
+version = "2.6.0"
+description = "Four-checkpoint custody-stage attribution for e-commerce returns (research prototype)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "scikit-learn>=1.3",
+    "scikit-image>=0.22",
+    "opencv-python-headless>=4.8",
+    "pillow>=10.0",
+    "pydantic>=2.5",
+    "sqlmodel>=0.0.14",
+    "typer>=0.9",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "python-multipart>=0.0.9",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8",
+    "pandas>=2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=4.1", "httpx>=0.27", "ruff==0.8.6"]
+kit = ["reportlab>=4.0"]
+env = ["python-dotenv>=1.0"]
+
+[project.scripts]
+trinetra = "trinetra_link.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["trinetra_link*"]
+
+[tool.setuptools.package-data]
+trinetra_link = ["ingest/static/*", "viewer/static/*", "viewer/templates/*"]
+
+[tool.ruff]
+extend-exclude = ["legacy"]

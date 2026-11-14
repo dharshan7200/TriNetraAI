@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend — no Tk/display needed
 import matplotlib.pyplot as plt
 import numpy as np
 
 from trinetra_link.config import DERIVED_DATA_DIR, REPO_ROOT, RESULTS_DIR
-from trinetra_link.eval.e1 import generate_benchmark_journey_from_staging
+from trinetra_link.eval.loading import SELF_TEST_WATERMARK, load_evaluation_journeys
 from trinetra_link.eval.metrics import compute_abstention_metrics, compute_stage_accuracy
 from trinetra_link.eval.pipeline import canonicalize_label, predict_trinetra_link
-from trinetra_link.schema.models import CheckpointObservation, Journey
-from trinetra_link.staging.determinability import derive_ground_truth, get_determinability_rule_hash
+from trinetra_link.schema.models import Journey
+from trinetra_link.staging.determinability import derive_ground_truth
 from trinetra_link.staging.log import load_staging_log
 
 
@@ -35,25 +36,74 @@ def perturb_scale_drift(journey: Journey, drift_g: float, target_cp: int = 3) ->
     return j_copy
 
 
-def perturb_gamma_darkening(journey: Journey, gamma: float, target_cp: int = 2) -> Journey:
-    """Simulate low-light darkening via gamma transform (I -> 255 * (I/255)^gamma)."""
+def _resolve_image_path(path: str) -> Optional[Path]:
+    """Find an image on disk: as given (absolute or relative to the working directory), else under the repository."""
+    candidate = Path(path)
+    if candidate.exists():
+        return candidate
+    candidate = REPO_ROOT / path
+    return candidate if candidate.exists() else None
+
+
+def _perturb_images(
+    journey: Journey,
+    target_cp: int,
+    transform: Callable[[np.ndarray], np.ndarray],
+    tag: str,
+    out_dir: Optional[Path],
+) -> Journey:
+    """Apply a pixel transform to every photo at checkpoint target_cp, writing perturbed copies to out_dir."""
+    import cv2
+
     j_copy = copy.deepcopy(journey)
+    if out_dir is None:
+        return j_copy
+    out_dir.mkdir(parents=True, exist_ok=True)
     for cp in j_copy.checkpoints:
-        if cp.cp_index == target_cp:
-            cp.carrier_log = (cp.carrier_log or "") + f" [underexposure gamma={gamma:.1f}]"
-            # Flag low luminance in checkpoint metadata if severe
-            if gamma >= 2.5:
-                cp.scale_status = "OK"  # Scale unaffected, image degraded
+        if cp.cp_index != target_cp:
+            continue
+        for img in cp.images:
+            src = _resolve_image_path(img.path)
+            if src is None:
+                continue
+            pixels = cv2.imread(str(src))
+            if pixels is None:
+                continue
+            perturbed = transform(pixels)
+            dst = out_dir / f"{journey.journey_code}_CP{cp.cp_index}_{img.side}_{tag}.png"
+            cv2.imwrite(str(dst), perturbed)
+            img.path = str(dst)
+            img.sha256 = hashlib.sha256(dst.read_bytes()).hexdigest()
     return j_copy
 
 
-def perturb_blur(journey: Journey, sigma: float, target_cp: int = 2) -> Journey:
-    """Simulate severe camera defocus/motion blur with Gaussian sigma."""
-    j_copy = copy.deepcopy(journey)
-    for cp in j_copy.checkpoints:
-        if cp.cp_index == target_cp:
-            cp.carrier_log = (cp.carrier_log or "") + f" [defocus blur sigma={sigma:.1f}]"
-    return j_copy
+def perturb_gamma_darkening(journey: Journey, gamma: float, target_cp: int = 2, out_dir: Optional[Path] = None) -> Journey:
+    """Darken the photos at target_cp with a gamma transform: I -> 255 * (I / 255) ** gamma."""
+    table = np.array([255.0 * (i / 255.0) ** gamma for i in range(256)]).clip(0, 255).astype(np.uint8)
+
+    def transform(pixels: np.ndarray) -> np.ndarray:
+        return table[pixels]
+
+    return _perturb_images(journey, target_cp, transform, f"gamma{gamma:g}", out_dir)
+
+
+def perturb_blur(journey: Journey, sigma: float, target_cp: int = 2, out_dir: Optional[Path] = None) -> Journey:
+    """Blur the photos at target_cp with a Gaussian kernel of standard deviation sigma (pixels)."""
+    import cv2
+
+    def transform(pixels: np.ndarray) -> np.ndarray:
+        return cv2.GaussianBlur(pixels, (0, 0), sigma)
+
+    return _perturb_images(journey, target_cp, transform, f"blur{sigma:g}", out_dir)
+
+
+def _bounding_checkpoints(staging_row: Dict[str, Any]) -> set:
+    """Checkpoints bounding the staged manipulation interval S_k: {k, k + 1}; empty when nothing was staged."""
+    interval = str(staging_row.get("manipulation_interval", "none")).strip().upper()
+    if interval.startswith("S") and interval[1:].isdigit():
+        k = int(interval[1:])
+        return {k, k + 1}
+    return set()
 
 
 def evaluate_e2(
@@ -61,11 +111,15 @@ def evaluate_e2(
     staging_log_path: Optional[Path | str] = None,
     output_dir: Optional[Path | str] = None,
     run_id: Optional[str] = None,
+    theta: float = 0.70,
+    scales_path: Optional[Path | str] = None,
+    store_path: Optional[Path | str] = None,
+    allow_label_rebuild: bool = False,
 ) -> Dict[str, Any]:
     """
     Execute Experiment E2: Controlled Perturbation Robustness Evaluation.
-    Applies perturbations across the 96 test captures:
-      - Dropped checkpoint: k in {2, 3, 4}
+    Applies perturbations to the captured test journeys (pixel-level for blur and darkening):
+      - Dropped checkpoint: k in {2, 3}
       - Gaussian blur: sigma in {1.0, 2.0, 4.0}
       - Gamma darkening: gamma in {1.5, 2.5, 4.0}
       - Scale drift: offset in {5.0, 20.0, 50.0} g
@@ -97,22 +151,32 @@ def evaluate_e2(
                     r["manipulation_interval"] = r.get("target_interval", "none")
 
     test_staging = [r for r in staging_rows if r["journey_code"] in test_codes]
-    base_journeys = [generate_benchmark_journey_from_staging(r) for r in test_staging]
+    base_journeys = load_evaluation_journeys(test_staging, store_path=store_path, allow_label_rebuild=allow_label_rebuild)
+    images_dir = target_dir / "perturbed_images"
+
+    scales_config = None
+    sc_path = Path(scales_path) if scales_path else DERIVED_DATA_DIR / "scales.json"
+    if sc_path.exists():
+        with open(sc_path, "r", encoding="utf-8") as fp:
+            scales_config = json.load(fp)
 
     # Perturbation conditions to evaluate
+    # target: the checkpoint whose evidence is perturbed (drift affects it and every later one).
+    # degraded: whether the perturbation can make that checkpoint unusable; ground truth becomes
+    # DEG only for journeys whose manipulation interval that checkpoint bounds.
     perturbation_specs = [
-        {"name": "Clean Baseline", "type": "baseline", "param": "none", "fn": lambda j: j, "degraded": False},
-        {"name": "Drop CP2", "type": "drop_checkpoint", "param": "k=2", "fn": lambda j: perturb_drop_checkpoint(j, 2), "degraded": True},
-        {"name": "Drop CP3", "type": "drop_checkpoint", "param": "k=3", "fn": lambda j: perturb_drop_checkpoint(j, 3), "degraded": True},
-        {"name": "Blur (sigma=1.0)", "type": "blur", "param": "1.0", "fn": lambda j: perturb_blur(j, 1.0), "degraded": False},
-        {"name": "Blur (sigma=2.0)", "type": "blur", "param": "2.0", "fn": lambda j: perturb_blur(j, 2.0), "degraded": False},
-        {"name": "Blur (sigma=4.0)", "type": "blur", "param": "4.0", "fn": lambda j: perturb_blur(j, 4.0), "degraded": True},
-        {"name": "Darken (gamma=1.5)", "type": "gamma", "param": "1.5", "fn": lambda j: perturb_gamma_darkening(j, 1.5), "degraded": False},
-        {"name": "Darken (gamma=2.5)", "type": "gamma", "param": "2.5", "fn": lambda j: perturb_gamma_darkening(j, 2.5), "degraded": True},
-        {"name": "Darken (gamma=4.0)", "type": "gamma", "param": "4.0", "fn": lambda j: perturb_gamma_darkening(j, 4.0), "degraded": True},
-        {"name": "Scale Drift (5g)", "type": "drift", "param": "5g", "fn": lambda j: perturb_scale_drift(j, 5.0), "degraded": False},
-        {"name": "Scale Drift (20g)", "type": "drift", "param": "20g", "fn": lambda j: perturb_scale_drift(j, 20.0), "degraded": False},
-        {"name": "Scale Drift (50g)", "type": "drift", "param": "50g", "fn": lambda j: perturb_scale_drift(j, 50.0), "degraded": False},
+        {"name": "Clean Baseline", "type": "baseline", "param": "none", "target": None, "fn": lambda j: j, "degraded": False},
+        {"name": "Drop CP2", "type": "drop_checkpoint", "param": "k=2", "target": 2, "fn": lambda j: perturb_drop_checkpoint(j, 2), "degraded": True},
+        {"name": "Drop CP3", "type": "drop_checkpoint", "param": "k=3", "target": 3, "fn": lambda j: perturb_drop_checkpoint(j, 3), "degraded": True},
+        {"name": "Blur (sigma=1.0)", "type": "blur", "param": "1.0", "target": 2, "fn": lambda j: perturb_blur(j, 1.0, out_dir=images_dir), "degraded": False},
+        {"name": "Blur (sigma=2.0)", "type": "blur", "param": "2.0", "target": 2, "fn": lambda j: perturb_blur(j, 2.0, out_dir=images_dir), "degraded": False},
+        {"name": "Blur (sigma=4.0)", "type": "blur", "param": "4.0", "target": 2, "fn": lambda j: perturb_blur(j, 4.0, out_dir=images_dir), "degraded": True},
+        {"name": "Darken (gamma=1.5)", "type": "gamma", "param": "1.5", "target": 2, "fn": lambda j: perturb_gamma_darkening(j, 1.5, out_dir=images_dir), "degraded": False},
+        {"name": "Darken (gamma=2.5)", "type": "gamma", "param": "2.5", "target": 2, "fn": lambda j: perturb_gamma_darkening(j, 2.5, out_dir=images_dir), "degraded": True},
+        {"name": "Darken (gamma=4.0)", "type": "gamma", "param": "4.0", "target": 2, "fn": lambda j: perturb_gamma_darkening(j, 4.0, out_dir=images_dir), "degraded": True},
+        {"name": "Scale Drift (5g)", "type": "drift", "param": "5g", "target": 3, "fn": lambda j: perturb_scale_drift(j, 5.0), "degraded": False},
+        {"name": "Scale Drift (20g)", "type": "drift", "param": "20g", "target": 3, "fn": lambda j: perturb_scale_drift(j, 20.0), "degraded": False},
+        {"name": "Scale Drift (50g)", "type": "drift", "param": "50g", "target": 3, "fn": lambda j: perturb_scale_drift(j, 50.0), "degraded": False},
     ]
 
     results_e2: List[Dict[str, Any]] = []
@@ -125,10 +189,10 @@ def evaluate_e2(
 
         for j_orig, j_pert, r_stg in zip(base_journeys, perturbed_journeys, test_staging):
             # Recompute ground truth determinability under perturbation
-            is_usable = not spec["degraded"]
+            is_usable = not (spec["degraded"] and spec["target"] in _bounding_checkpoints(r_stg))
             omega_star, exp_label, _ = derive_ground_truth(r_stg, capture_quality_passed=is_usable)
 
-            attr = predict_trinetra_link(j_pert)
+            attr = predict_trinetra_link(j_pert, theta=theta, scales_config=scales_config)
             preds.append(canonicalize_label(attr.label))
             gts.append(canonicalize_label(exp_label))
             omegas.append(omega_star)
@@ -150,6 +214,8 @@ def evaluate_e2(
     # Save Tables: CSV and LaTeX
     csv_path = target_dir / "table_e2_perturbations.csv"
     with open(csv_path, "w", encoding="utf-8") as fp:
+        if allow_label_rebuild:
+            fp.write(f"# {SELF_TEST_WATERMARK}\n")
         fp.write("Condition,Perturbation Type,Parameter,Stage Acc (DET),AAR (Non-DET),UBR (Non-DET),UAR (DET)\n")
         for r in results_e2:
             fp.write(f"{r['condition']},{r['perturbation_type']},{r['parameter']},{r['stage_acc_det']},{r['aar_non_det']},{r['ubr_non_det']},{r['uar_det']}\n")
@@ -193,6 +259,8 @@ def evaluate_e2(
         "completed_at_utc": datetime.now(timezone.utc).isoformat(),
         "total_test_journeys": len(base_journeys),
         "conditions_evaluated": len(results_e2),
+        "theta": theta,
+        "journeys_from": "label rebuild (self-test)" if allow_label_rebuild else "captured store",
         "results": results_e2,
         "artifacts": {
             "csv_table": str(csv_path),
@@ -201,6 +269,9 @@ def evaluate_e2(
             "figure_pdf": str(fig_pdf),
         },
     }
+
+    if allow_label_rebuild:
+        manifest["watermark"] = SELF_TEST_WATERMARK
 
     with open(target_dir / "provenance.json", "w", encoding="utf-8") as fp:
         json.dump(manifest, fp, indent=2)

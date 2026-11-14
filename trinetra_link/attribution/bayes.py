@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from trinetra_link.schema.models import Attribution
 
 STAGES = [

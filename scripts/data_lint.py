@@ -17,13 +17,11 @@ skipping quarantined legacy/ directories.
 """
 
 import argparse
-import glob
 import os
 import re
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 if hasattr(sys.stdout, "reconfigure"):
     try:

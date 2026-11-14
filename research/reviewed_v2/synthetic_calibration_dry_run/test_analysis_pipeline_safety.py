@@ -14,7 +14,6 @@ DISCLAIMER: SYNTHETIC DATA ONLY. DOES NOT MODIFY OFFICIAL AUDIT DATA.
 
 import os
 import sys
-import numpy as np
 import pandas as pd
 
 # Add parent directory to path to test the official compute_calibration_agreement module
@@ -22,7 +21,7 @@ PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
-from compute_calibration_agreement import (
+from compute_calibration_agreement import (  # noqa: E402
     compute_fleiss_kappa,
     evaluate_calibration_ratings,
     ALLOWED_ATTRIBUTIONS,

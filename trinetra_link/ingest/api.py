@@ -3,25 +3,25 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import hmac
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import cv2
 import numpy as np
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Path as FPath, Query, Response, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Path as FPath, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from PIL import Image
 import io
 
 from trinetra_link import __version__
-from trinetra_link.config import ARTIFACTS_DIR, REPO_ROOT
+from trinetra_link.config import ARTIFACTS_DIR
 from trinetra_link.quality.gate import QualityGate
 from trinetra_link.reconcile.fuse import fuse_checkpoint_observations
-from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey, QualityReport
+from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey, SealObservation
 from trinetra_link.store.database import Store
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -29,21 +29,26 @@ STATIC_DIR.mkdir(parents=True, exist_ok=True)
 IMAGES_STORAGE_DIR = ARTIFACTS_DIR / "images"
 IMAGES_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Device authentication token
+# Example token for local tests only. The service never falls back to it: DEVICE_INGEST_TOKEN must be set.
 DEFAULT_DEV_TOKEN = "trinetra-dev-capture-token"
 
 
-def get_expected_token() -> str:
-    return os.getenv("DEVICE_INGEST_TOKEN", DEFAULT_DEV_TOKEN)
+def get_expected_token() -> Optional[str]:
+    token = os.getenv("DEVICE_INGEST_TOKEN", "").strip()
+    return token or None
 
 
 def verify_device_token(
     x_device_token: Optional[str] = Header(None, alias="X-Device-Token"),
-    token: Optional[str] = Query(None),
 ) -> str:
     expected = get_expected_token()
-    provided = x_device_token or token
-    if not provided or provided != expected:
+    if expected is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Capture is disabled: set DEVICE_INGEST_TOKEN on the server before accepting observations",
+        )
+    provided = x_device_token
+    if not provided or not hmac.compare_digest(provided, expected):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized: Missing or invalid device capture token",
@@ -57,13 +62,17 @@ app = FastAPI(
     version=__version__,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# The capture page is served by this app (same origin), so no cross-origin access is needed by default.
+# Extra origins, e.g. a separate capture front end, are listed in TRINETRA_CORS_ORIGINS (comma-separated).
+_cors_origins = [o.strip() for o in os.getenv("TRINETRA_CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-Device-Token"],
+    )
 
 # Shared store instance (configurable via env)
 def get_store() -> Store:
@@ -226,8 +235,12 @@ async def ingest_checkpoint(
 
     # Build CheckpointObservation
     weights_g = meta_dict.get("weights_g", [])
-    if not isinstance(weights_g, list) or len(weights_g) < 1:
-        raise HTTPException(status_code=400, detail="weights_g must be a list with at least 1 reading (recommended >= 3)")
+    scale_failed = str(meta_dict.get("scale_status", "OK")).upper() in ("ERROR", "UNSTABLE")
+    if not isinstance(weights_g, list) or (len(weights_g) < 1 and not scale_failed):
+        raise HTTPException(
+            status_code=400,
+            detail="weights_g must hold the readings taken (3 per the capture SOP); it may be empty only when the scale reported ERROR or UNSTABLE",
+        )
 
     ts_str = meta_dict.get("ts_utc")
     ts_utc = datetime.fromisoformat(ts_str.replace("Z", "+00:00")) if ts_str else datetime.now(timezone.utc)
@@ -247,6 +260,9 @@ async def ingest_checkpoint(
         serial=meta_dict.get("serial"),
         imei=meta_dict.get("imei"),
         carrier_log=meta_dict.get("carrier_log"),
+        identifier_source=meta_dict.get("identifier_source"),
+        glare_reported=meta_dict.get("glare_reported"),
+        seals=[SealObservation(**seal) for seal in (meta_dict.get("seals") or [])],
         permitted_packaging_change=bool(meta_dict.get("permitted_packaging_change", False)),
         tare_delta_g=float(meta_dict.get("tare_delta_g", 0.0)),
         app_version=meta_dict.get("app_version", __version__),

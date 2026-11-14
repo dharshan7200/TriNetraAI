@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import pytest
-from typing import Dict, List
+from typing import List
 
 from trinetra_link.attribution.interval import attribute_interval_algorithm_1
 from trinetra_link.attribution.bayes import attribute_bayes

@@ -32,9 +32,11 @@ def predict_b2_endpoints(journey: Journey) -> Attribution:
 
     tare_delta = sum(cp.tare_delta_g for cp in journey.checkpoints if cp.permitted_packaging_change)
 
-    w1 = float(np.mean(cp1.weights_g)) if cp1.weights_g else 0.0
-    w4 = float(np.mean(cp4.weights_g)) if cp4.weights_g else 0.0
-    weight_diff = abs(w4 - w1 - tare_delta)
+    # Missing weights give no weight evidence (not a 0 g reading)
+    if cp1.weights_g and cp4.weights_g:
+        weight_diff = abs(float(np.mean(cp4.weights_g)) - float(np.mean(cp1.weights_g)) - tare_delta)
+    else:
+        weight_diff = 0.0
 
     # Identity check between endpoints
     seal_diff = bool(cp1.seal_qr and cp4.seal_qr and cp1.seal_qr != cp4.seal_qr)

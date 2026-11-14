@@ -41,6 +41,13 @@ class CheckpointObservation(BaseModel):
     serial: Optional[str] = Field(default=None, description="Observed serial number")
     imei: Optional[str] = Field(default=None, description="Observed IMEI for serialized cellular hardware")
     carrier_log: Optional[str] = Field(default=None, description="Optional custody carrier log notes")
+    identifier_source: Optional[str] = Field(
+        default=None,
+        description="How seal QR, serial and IMEI were obtained: 'scanned', 'typed' or 'photo' (read off a photo)",
+    )
+    glare_reported: Optional[bool] = Field(
+        default=None, description="Operator reports specular glare over a defect or seal at this checkpoint"
+    )
     permitted_packaging_change: bool = Field(default=False, description="Whether legitimate re-boxing or re-taping occurred")
     tare_delta_g: float = Field(default=0.0, description="Known tare delta in grams for permitted packaging modifications")
     app_version: str = Field(default="2.6.0", description="Software version used for capture")

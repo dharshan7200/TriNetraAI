@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import pytest
 from trinetra_link.reconcile.identity import reconcile_identity
 from trinetra_link.schema.models import CheckpointObservation
 

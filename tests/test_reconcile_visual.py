@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import numpy as np
-import pytest
 from trinetra_link.reconcile.visual import (
     compute_visual_change_score,
     order_corner_points,

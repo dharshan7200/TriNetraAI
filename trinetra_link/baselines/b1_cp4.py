@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Optional
 from trinetra_link.schema.models import Attribution, CheckpointObservation, Journey
 
 
@@ -43,10 +43,11 @@ def predict_b1_cp4(journey: Journey) -> Attribution:
         )
 
     # Weight comparison vs CP1 or nominal
-    w4 = float(np.mean(cp4.weights_g)) if cp4.weights_g else 0.0
-    w1 = float(np.mean(cp1.weights_g)) if cp1 and cp1.weights_g else w4
-
-    weight_diff = abs(w4 - w1 - tare_delta)
+    # Missing weights give no weight evidence (not a 0 g reading)
+    if cp4.weights_g and cp1 and cp1.weights_g:
+        weight_diff = abs(float(np.mean(cp4.weights_g)) - float(np.mean(cp1.weights_g)) - tare_delta)
+    else:
+        weight_diff = 0.0
     is_weight_anomaly = weight_diff > 2.0
 
     # Seal comparison vs CP1

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import pytest
 
 from trinetra_link.schema.models import CheckpointObservation, SealObservation
 from trinetra_link.reconcile.seals import reconcile_seal_layers, determine_breach_depth

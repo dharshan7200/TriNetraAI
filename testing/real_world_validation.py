@@ -14,7 +14,6 @@ Outputs:
 import csv
 import json
 import os
-import re
 import time
 import urllib.request
 import urllib.error
@@ -30,8 +29,8 @@ if hasattr(sys.stdout, "reconfigure"):
 print("\n[BLOCKED] Execution blocked: real_world_validation.py is legacy evaluation code that relies on quarantined datasets and is disabled. Refer to legacy/README.md.")
 sys.exit(2)
 
-from datetime import datetime
-from collections import defaultdict, Counter
+from datetime import datetime  # noqa: E402
+from collections import defaultdict, Counter  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # PATHS
@@ -529,21 +528,21 @@ report_lines = [
     "=" * 50,
     "",
     f"Weight / Scale Records          Missing: {weight_missing_count}/{total} ({round(weight_missing_count/total*100)}%)",
-    f"  -> WHY TriNetra BLE scale integration is critical",
-    f"  -> Merchants cannot prove outbound weight without real-time capture",
+    "  -> WHY TriNetra BLE scale integration is critical",
+    "  -> Merchants cannot prove outbound weight without real-time capture",
     "",
     f"Warehouse Pack-Station CCTV     Missing: {cctv_missing_count}/{total} ({round(cctv_missing_count/total*100)}%)",
-    f"  -> WHY TriNetra on-device voice capture matters",
-    f"  -> Warehouse workers CANNOT retrieve CCTV days after incident",
+    "  -> WHY TriNetra on-device voice capture matters",
+    "  -> Warehouse workers CANNOT retrieve CCTV days after incident",
     "",
     f"Carrier GPS Timestamps          Missing: {gps_missing_count}/{total} ({round(gps_missing_count/total*100)}%)",
-    f"  -> WHY TriNetra edge telemetry packet includes GPS",
-    f"  -> Mobile app captures pickup/delivery coords automatically",
+    "  -> WHY TriNetra edge telemetry packet includes GPS",
+    "  -> Mobile app captures pickup/delivery coords automatically",
     "",
     f"Any Measurable Physical Evidence Missing: {any_missing_count}/{total} ({round(any_missing_count/total*100)}%)",
     f"  -> In {round(any_missing_count/total*100)}% of real disputes, investigators have ZERO",
-    f"     measurable physical evidence. Pure 'he said / she said.'",
-    f"  -> TriNetra solves this by capturing evidence at the source.",
+    "     measurable physical evidence. Pure 'he said / she said.'",
+    "  -> TriNetra solves this by capturing evidence at the source.",
     "```",
     "",
     "### Electronics Subset",
@@ -603,7 +602,7 @@ report_lines += [
     f"  Correct           : {backend_correct} cases",
     f"  Incorrect/Edge    : {len(selected_20)-backend_correct} cases",
     "",
-    f"Response Latency:",
+    "Response Latency:",
     f"  Average : {avg} ms",
     f"  P50     : {p50} ms",
     f"  P95     : {p95} ms",
@@ -642,19 +641,19 @@ report_lines += [
     "## Judges Summary",
     "",
     "```",
-    f"We didn't test on synthetic data we made up.",
+    "We didn't test on synthetic data we made up.",
     f"We analyzed {total} real complaints from Reddit, Twitter, Facebook, LinkedIn.",
     "",
-    f"Evidence gaps in real disputes:",
+    "Evidence gaps in real disputes:",
     f"  {round(weight_missing_count/total*100)}% have NO weight records",
     f"  {round(cctv_missing_count/total*100)}% have NO warehouse footage",
     f"  {round(any_missing_count/total*100)}% have NO measurable physical evidence",
     "",
-    f"This is why mobile-first, on-device edge capture is mandatory.",
+    "This is why mobile-first, on-device edge capture is mandatory.",
     "",
     f"System validated on {total} real messy narratives - not toy data.",
     f"Result: {backend_pct}% accuracy. Sub-{p95}ms P95 latency.",
-    f"Zero false accusations on data we didn't create.",
+    "Zero false accusations on data we didn't create.",
     "```",
 ]
 
@@ -697,7 +696,7 @@ summary_lines = [
     f"  Avg latency        : {avg} ms",
     f"  P95 latency        : {p95} ms",
     f"  P99 latency        : {p99} ms",
-    f"  SLA (500ms)        : PASS",
+    "  SLA (500ms)        : PASS",
     "",
     "  OUTPUT FILES",
     "  " + "-" * 44,
@@ -709,7 +708,7 @@ summary_lines = [
     "",
     "  JUDGE STATEMENT",
     "  " + "-" * 44,
-    f"  '1,050 real complaints analyzed. System validated on real data.",
+    "  '1,050 real complaints analyzed. System validated on real data.",
     f"  {backend_pct}% accuracy. Sub-{p95}ms latency. Zero false accusations.'",
     "",
     "=" * 60,
@@ -729,7 +728,7 @@ print("=" * 72)
 print(f"\n  {total} real complaints analysed")
 print(f"  Weight {round(weight_missing_count/total*100)}% missing | CCTV {round(cctv_missing_count/total*100)}% missing | GPS {round(gps_missing_count/total*100)}% missing")
 print(f"  {total} records semantically classified")
-print(f"  5 demo scenarios extracted from real data")
+print("  5 demo scenarios extracted from real data")
 print(f"  Backend validation: {backend_success_rate} ({backend_pct}%)")
 print(f"\n  Output directory: {OUTPUT_DIR}")
 print()

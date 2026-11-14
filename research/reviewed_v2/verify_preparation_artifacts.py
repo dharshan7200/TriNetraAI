@@ -111,7 +111,7 @@ def test_fleiss_kappa_math():
     print("=== TEST 4: Fleiss' Kappa Algorithm Verification ===")
     N = 10
     m = 4
-    k = 3
+    k = 3  # noqa: F841  (number of categories, documented for the reader)
     n_matrix = np.array([
         [4, 0, 0], [4, 0, 0], [4, 0, 0], [4, 0, 0],
         [0, 4, 0], [0, 4, 0], [0, 0, 4], [0, 0, 4],

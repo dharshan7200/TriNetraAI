@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
-from trinetra_link.reconcile.identity import ConflictType, DecisionStatus, evaluate_verdict_service_parity
-from trinetra_link.schema.models import Attribution, CheckpointObservation, Journey
+from trinetra_link.reconcile.identity import DecisionStatus, evaluate_verdict_service_parity
+from trinetra_link.schema.models import Attribution, Journey
 
 
 def predict_b5_v3_rules(journey: Journey) -> Attribution:

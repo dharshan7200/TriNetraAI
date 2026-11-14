@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from trinetra_link.attribution.interval import attribute_interval_algorithm_1
 
 

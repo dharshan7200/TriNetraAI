@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from trinetra_link.config import DERIVED_DATA_DIR
 from trinetra_link.schema.models import CheckpointObservation
@@ -32,9 +32,6 @@ def load_scale_parameters(
         except Exception:
             pass
     return DEFAULT_SCALE_SIGMA_G, DEFAULT_SCALE_DELTA_G
-
-
-from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 def reconcile_weights(

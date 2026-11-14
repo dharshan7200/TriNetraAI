@@ -28,7 +28,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest pandas numpy
+          pip install -e ".[dev]"
 
       - name: Run Ruff Linter
         run: |
@@ -51,6 +51,7 @@ jobs:
           pytest research/reviewed_v2/synthetic_calibration_dry_run/test_analysis_pipeline_safety.py
           pytest legacy/phase-1/tests/test_suite.py
           pytest testing/
+          pytest tests/ -q
 
   java-build:
     name: Backend Java Build (Optional / Non-blocking)

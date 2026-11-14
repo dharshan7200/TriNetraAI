@@ -10,6 +10,7 @@ from trinetra_link.quality.features import (
     evaluate_scale_readings,
     evaluate_temporal_order,
 )
+from trinetra_link.quality.provenance import glare_reported, identifiers_independent_of_photos
 from trinetra_link.schema.models import CheckpointObservation, QualityReport
 
 
@@ -153,7 +154,7 @@ class QualityGate:
                 q_image = float(np.prod(image_scores) ** (1.0 / len(image_scores)))
         q_photo = q_image
         # Glare over defect degrades photo modality trust
-        if "glare" in (observation.carrier_log or "").lower():
+        if glare_reported(observation):
             q_photo = min(q_photo, 0.20)
             reasons.append("Camera glare over defect")
 
@@ -162,7 +163,7 @@ class QualityGate:
 
         # Rule: A checkpoint whose photos are untrusted cannot read seal IDs from photos
         # Seal modality is UNREADABLE there unless the ID was typed by a human
-        is_human_typed = "manual" in (observation.carrier_log or "").lower()
+        is_human_typed = identifiers_independent_of_photos(observation)
         if (q_photo < self.theta) and not is_human_typed:
             q_seal = 0.0
             feature_scores["q_seal"] = 0.0

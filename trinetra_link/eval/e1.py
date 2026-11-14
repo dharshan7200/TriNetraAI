@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend — no Tk/display needed
 import matplotlib.pyplot as plt
@@ -25,6 +25,7 @@ from trinetra_link.eval.metrics import (
     compute_stage_accuracy,
     exact_mcnemar_test,
 )
+from trinetra_link.eval.loading import SELF_TEST_WATERMARK, load_evaluation_journeys
 from trinetra_link.eval.pipeline import canonicalize_label, predict_trinetra_link
 from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey
 from trinetra_link.staging.determinability import derive_ground_truth, get_determinability_rule_hash
@@ -124,6 +125,11 @@ def generate_benchmark_journey_from_staging(
     )
 
 
+def fmt_metric(value: Optional[float]) -> str:
+    """Format a metric for tables; None (undefined over an empty group) prints as n/a."""
+    return "n/a" if value is None else f"{value:.4f}"
+
+
 def evaluate_e1(
     split_manifest_path: Optional[Path | str] = None,
     staging_log_path: Optional[Path | str] = None,
@@ -136,6 +142,8 @@ def evaluate_e1(
     skip_llm_if_no_key: bool = False,
     theta: Optional[float] = None,
     mask: str = "full",
+    store_path: Optional[Path | str] = None,
+    allow_label_rebuild: bool = False,
 ) -> Dict[str, Any]:
     """
     Execute Experiment E1: Primary Benchmark Evaluation on the 96-journey test split.
@@ -154,6 +162,9 @@ def evaluate_e1(
     """
     if mask not in ("full", "field"):
         raise ValueError(f"Invalid mask mode '{mask}'. Expected 'full' or 'field'.")
+    if allow_label_rebuild:
+        # A pipeline self-test is never a result: every output carries the not-a-result watermark.
+        is_demo_run = True
 
     rid = run_id or f"e1_{mask}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     target_dir = Path(output_dir) if output_dir else RESULTS_DIR / rid
@@ -253,13 +264,14 @@ def evaluate_e1(
         except Exception:
             pass
 
-    # Optional SQLite store connection for pre-generated synthetic journeys
-    demo_store = None
-    if is_synthetic:
-        from trinetra_link.store.database import Store
-        demo_db_path = REPO_ROOT / "demo_data" / "synthetic_120" / "store.db"
-        if demo_db_path.exists():
-            demo_store = Store(demo_db_path)
+    # Captured journeys come from the SQLite store: the synthetic demo store for dry runs,
+    # otherwise the study store. Label-built journeys are allowed only in a pipeline self-test.
+    if store_path is None and is_synthetic:
+        store_path = REPO_ROOT / "demo_data" / "synthetic_120" / "store.db"
+    loaded_by_code = {
+        j.journey_code: j
+        for j in load_evaluation_journeys(test_staging, store_path=store_path, allow_label_rebuild=allow_label_rebuild)
+    }
 
     # 3. Derive Ground Truth and construct journeys
     ground_truth_labels: List[str] = []
@@ -311,11 +323,7 @@ def evaluate_e1(
             val_sa = "none"
         sa_subgroups.append(val_sa)
 
-        loaded_journey = None
-        if demo_store:
-            loaded_journey = demo_store.get_journey(code)
-        if not loaded_journey:
-            loaded_journey = generate_benchmark_journey_from_staging(r)
+        loaded_journey = loaded_by_code[code]
 
         # Apply field mask: weights only at CP1 and CP4; CP2/CP3 keep photos, seals, notes, but no weights
         if mask == "field":
@@ -416,6 +424,24 @@ def evaluate_e1(
     # 6. Per-cell and Subgroup accuracy breakdowns
     per_cell_breakdown = compute_per_cell_breakdown(ref_preds, ground_truth_labels, scenario_cells)
 
+    # Customer misattribution: tampered journeys whose true stage is not customer custody (S2),
+    # and non-determinable journeys, that a method nevertheless attributes to the customer.
+    customer_misattribution: Dict[str, Any] = {}
+    outside_s2 = [
+        i for i, (gt, om) in enumerate(zip(ground_truth_labels, omega_stars))
+        if om == "OBS_DETERMINABLE" and gt in ("ATTR_STAGE_FORWARD_TRANSIT", "ATTR_STAGE_REVERSE_TRANSIT")
+    ]
+    non_det = [i for i, om in enumerate(omega_stars) if om != "OBS_DETERMINABLE"]
+    for m_name, preds_m in method_predictions.items():
+        blamed_det = sum(1 for i in outside_s2 if preds_m[i] == "ATTR_STAGE_CONSUMER_CUSTODY")
+        blamed_non_det = sum(1 for i in non_det if preds_m[i] == "ATTR_STAGE_CONSUMER_CUSTODY")
+        customer_misattribution[m_name] = {
+            "tampered_outside_s2": len(outside_s2),
+            "blamed_on_customer": blamed_det,
+            "non_determinable": len(non_det),
+            "non_determinable_blamed_on_customer": blamed_non_det,
+        }
+
     # Subgroup metrics: evaluate every method by weight_matched and mass_change_g bucket
     subgroup_table: List[Dict[str, Any]] = []
     subgroups_to_eval = [
@@ -443,16 +469,19 @@ def evaluate_e1(
                 s_abs = compute_abstention_metrics(sub_preds, sub_gts, sub_omegas)
                 _, _, s_aurc = compute_risk_coverage_curve(sub_preds, sub_confs, sub_gts, sub_omegas)
 
+                # A metric over an empty group is undefined: report None ("n/a"), never 0.000 or 1.000
+                has_det = s_n_det > 0
+                has_non_det = s_abs["non_det_total"] > 0
                 subgroup_table.append({
                     "subgroup_dimension": sg_name,
                     "subgroup_value": sg_val,
                     "method": m_name,
-                    "stage_acc_det": s_acc,
-                    "macro_f1_s1_s3": s_f1,
-                    "aar_non_det": s_abs["aar"],
-                    "ubr_non_det": s_abs["ubr"],
-                    "uar_det": s_abs["uar"],
-                    "aurc": s_aurc,
+                    "stage_acc_det": s_acc if has_det else None,
+                    "macro_f1_s1_s3": s_f1 if has_det else None,
+                    "aar_non_det": s_abs["aar"] if has_non_det else None,
+                    "ubr_non_det": s_abs["ubr"] if has_non_det else None,
+                    "uar_det": s_abs["uar"] if has_det else None,
+                    "aurc": s_aurc if has_det else None,
                     "n_total": len(sg_idx),
                     "n_det": s_n_det,
                     "n_correct": s_n_corr,
@@ -523,8 +552,9 @@ def evaluate_e1(
         fp.write("Dimension,Subgroup,Method,Stage Accuracy (DET),Macro-F1 (S1-S3),AAR (Non-DET),UBR (Non-DET),UAR (DET),AURC,N_Total,N_DET\n")
         for s in subgroup_table:
             fp.write(
-                f"{s['subgroup_dimension']},{s['subgroup_value']},{s['method']},{s['stage_acc_det']:.4f},"
-                f"{s['macro_f1_s1_s3']:.4f},{s['aar_non_det']:.4f},{s['ubr_non_det']:.4f},{s['uar_det']:.4f},{s['aurc']:.4f},"
+                f"{s['subgroup_dimension']},{s['subgroup_value']},{s['method']},{fmt_metric(s['stage_acc_det'])},"
+                f"{fmt_metric(s['macro_f1_s1_s3'])},{fmt_metric(s['aar_non_det'])},{fmt_metric(s['ubr_non_det'])},"
+                f"{fmt_metric(s['uar_det'])},{fmt_metric(s['aurc'])},"
                 f"{s['n_total']},{s['n_det']}\n"
             )
 
@@ -568,6 +598,7 @@ def evaluate_e1(
         "bootstrap_iterations": b_bootstrap,
         "results_summary": results_table,
         "subgroup_breakdowns": subgroup_table,
+        "customer_misattribution": customer_misattribution,
         "mcnemar_vs_baselines": mcnemar_results,
         "per_cell_breakdown": per_cell_breakdown,
         "artifacts": {
@@ -582,7 +613,9 @@ def evaluate_e1(
         },
     }
 
-    if is_synthetic or is_demo_run:
+    if allow_label_rebuild:
+        prov["watermark"] = SELF_TEST_WATERMARK
+    elif is_synthetic or is_demo_run:
         prov["watermark"] = "SYNTHETIC DRY RUN — NOT A RESULT"
         prov["synthetic_dry_run"] = True
         prov["disclaimer"] = "Generated from programmatic synthetic demo fixtures. Not an empirical research result."

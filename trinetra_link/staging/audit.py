@@ -3,11 +3,10 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 import random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from sklearn.metrics import cohen_kappa_score
 
 from trinetra_link.config import RESTRICTED_DATA_DIR
-from trinetra_link.staging.determinability import derive_ground_truth
 from trinetra_link.staging.log import load_staging_log
 
 

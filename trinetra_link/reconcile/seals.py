@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, Optional, Sequence
 
-from trinetra_link.schema.models import CheckpointObservation, SealObservation
+from trinetra_link.schema.models import CheckpointObservation
 
 
 def reconcile_seal_layers(
@@ -27,12 +27,14 @@ def reconcile_seal_layers(
       - TORN or MISSING state → ANOM
       - seal_id_read differs from reference ID → ANOM
       - UNREADABLE → UNK (never INTACT)
+      - Layer not recorded at the checkpoint → UNK
     """
+    # A layer not recorded at this checkpoint is unknown, never intact: absence of a record is not evidence.
     result: Dict[str, str] = {
-        "L1_FWD": "INTACT",
-        "L1_RET": "INTACT",
-        "L2_BOX": "INTACT",
-        "L3_ITEM": "INTACT",
+        "L1_FWD": "UNK",
+        "L1_RET": "UNK",
+        "L2_BOX": "UNK",
+        "L3_ITEM": "UNK",
     }
 
     cp_by_idx = {cp.cp_index: cp for cp in checkpoints}

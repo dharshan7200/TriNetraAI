@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-import pytest
 from trinetra_link.config import REPO_ROOT
 
 

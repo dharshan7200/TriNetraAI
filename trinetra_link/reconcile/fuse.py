@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 import numpy as np
 
-from trinetra_link.quality.gate import QualityGate
 from trinetra_link.reconcile.identity import reconcile_identity
 from trinetra_link.reconcile.visual import reconcile_visual
 from trinetra_link.reconcile.weight import reconcile_weights

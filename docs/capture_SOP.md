@@ -9,10 +9,12 @@
 ## 1. Objective and Core Principles
 
 This SOP defines the standardized, non-fabricable physical observation procedure across all four physical journey checkpoints:
-- **CP1:** Origin Dispatch (Merchant / Vendor Staging Facility)
-- **CP2:** Intermediate Transit Hub (Line-haul Handover)
-- **CP3:** Destination Delivery Hub (Last-mile Dispatch)
-- **CP4:** Doorstep Delivery / Customer Return Handover
+- **CP1:** Origin hub intake, before forward transit (reference observation for every comparison)
+- **CP2:** Carrier facility, after forward transit — closes stage **S1**
+- **CP3:** Doorstep hand-over: delivery to the customer and collection of the return — closes stage **S2** (customer custody)
+- **CP4:** Return processing hub, after reverse transit — closes stage **S3**
+
+These definitions match the protocol (v2.5, amended v2.6) and the pipeline: an anomaly first seen at CP(k+1) after an intact CP(k) is attributed to stage S(k).
 
 **Key Mandates:**
 1. Zero simulated or invented measurements. Every weight, photo, and serial number must reflect genuine empirical capture.
@@ -89,8 +91,10 @@ In operational logistics, legitimate package reinforcement (e.g. carrier adding 
 ## 5. Security Seal and Unit Identity
 
 1. **Security Seal QR:** Scan or transcribe the alphanumeric payload of the tamper-evident security seal. If the seal has been cut, re-taped, peeled, or substituted, record the new seal payload and add custody notes.
-2. **Serial Number:** Record the external barcode serial number on the manufacturer label.
-3. **IMEI:** For cellular devices, verify IMEI matches expected documentation.
+2. **Layered seals:** For each layer (L1_FWD flyer seal, L1_RET return flyer seal from CP3, L2_BOX carton seal, L3_ITEM item seal) enter the ID read and its state (INTACT, TORN, MISSING, UNREADABLE). Leave a layer blank if it was not inspected; it is then scored as unknown, never as intact.
+3. **Identifier source:** Under *How were seal, serial and IMEI obtained?* choose **Scanned** or **Typed from the label** when they were read directly from the parcel, and **Read off the photos** only when they came from the photos. Set *Glare over a seal or defect?* to **Yes** whenever reflections hid part of a surface, even after re-capture.
+4. **Serial Number:** Record the external barcode serial number on the manufacturer label.
+5. **IMEI:** For cellular devices, verify IMEI matches expected documentation.
 
 ---
 
@@ -102,5 +106,5 @@ In operational logistics, legitimate package reinforcement (e.g. carrier adding 
 | **Quality Gate Warning: Blurry / Out of Focus** | Tap screen to refocus on package printed text. Hold camera steady; re-snap. |
 | **Quality Gate Warning: High Specular Glare** | Tilt camera $10^\circ$ to prevent directional reflection off packing tape. |
 | **Scale Spread Exceeds 2.0g** | Check for draft, cord tension, or uneven feet. Re-tare scale and re-weigh. |
-| **Network Failure during Ingest Upload** | Photos and metadata are buffered locally in browser. Retry submission when connected. |
+| **Network Failure during Ingest Upload** | The capture page does not buffer offline. Keep the page open, restore the connection and press Submit again; if the page was closed, re-capture the checkpoint and note it in the custody log. |
 | **Server Rejection: Hash Mismatch** | Local file corrupted during transmission. Re-submit form. |

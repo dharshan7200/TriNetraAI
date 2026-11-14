@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
-from trinetra_link.schema.models import CheckpointObservation, Journey, QualityReport
+from trinetra_link.schema.models import CheckpointObservation, Journey
 
 
 def test_checkpoint_negative_weight_rejected():

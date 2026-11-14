@@ -2,11 +2,9 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Protocol](https://img.shields.io/badge/protocol-v2.6.0--amendment-success.svg)](research/amendments/AMENDMENT_v2.6.md)
-[![Gates G1-G4](https://img.shields.io/badge/study%20gates-G1--G4%20passed-brightgreen.svg)](STATUS.md)
-[![Tests](https://img.shields.io/badge/tests-82%20passed%20%7C%2087%25%20cov-green.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**TriNetra-Link** is an algorithm, physical capture infrastructure, and benchmark dataset for attributing custodial discrepancy stages in multi-transfer supply chains. Using a metadata-only quality gate, multimodal physical reconciliation, and causal interval isolation, TriNetra-Link uniquely isolates the exact transition interval of physical package tampering or substitution while appropriately abstaining when evidence is degraded or indistinguishable.
+**TriNetra-Link** is an algorithm, physical capture infrastructure, and benchmark dataset for attributing custodial discrepancy stages in multi-transfer supply chains. Using a metadata-only quality gate, multimodal physical reconciliation, and causal interval isolation, TriNetra-Link is designed to isolate the exact transition interval of physical package tampering or substitution while appropriately abstaining when evidence is degraded or indistinguishable.
 
 ---
 
@@ -115,25 +113,19 @@ Under Protocol Amendment v2.6.0, all human-reviewer calibration requirements (Ga
 | `degraded_evidence` | Tamper with bounding sensor error / blur / darkness | $\Omega^* = \text{DEG} \implies \text{ABSTAIN}$ | 12 |
 | `ambiguous_evidence` | Tamper with defect hidden by deliberate specular glare | $\Omega^* = \text{IND} \implies \text{ABSTAIN}$ | 12 |
 
-**Data Split:** Proportional stratified partition into **24 calibration journeys** (threshold fitting) and **96 test journeys** (primary evaluation) recorded in `data/derived/split_manifest.json`.
+**Data Split (planned):** Proportional stratified partition into **24 calibration journeys** (threshold fitting) and **96 test journeys** (primary evaluation), to be recorded in `data/derived/split_manifest.json` once the journeys are staged.
+
+**Doorstep substitution** is scored as $S_1$ because, with checkpoints at the origin, the carrier facility, the doorstep and the return hub, the doorstep hand-over is the last interval the system can bound before CP3. Whether this cell should be relabelled is an open protocol decision for the team (see `NEXT_STEPS.md`).
 
 ---
 
-## 4. Benchmark Results (Table III)
+## 4. Study Status — No Results Yet
 
-Primary evaluation across the 96 physical test split journeys (Experiment E1):
+**No physical journeys have been captured, so this repository reports no benchmark results.** Gate G-1 (preregistration) is complete; G-2 (truth commitment), G-3 (10-journey pilot) and G-4 (scale characterisation) are open and need the physical staging work described in `docs/capture_SOP.md`. See `STATUS.md` for the gate-by-gate state.
 
-| Method | Stage Accuracy (DET) | 95% Bootstrap CI | Macro-F1 ($S_1$–$S_3$) | AAR (Non-DET) | UBR (Non-DET) | UAR (DET) | AURC |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **TriNetra-Link (Algorithm 1)** | **1.000** | **[1.000, 1.000]** | **1.000** | **1.000** | **0.000** | **0.000** | **0.000** |
-| **TriNetra-Link (Bayes)** | **1.000** | **[1.000, 1.000]** | **1.000** | **1.000** | **0.000** | **0.000** | **0.000** |
-| **B1 (CP4-Only Terminal)** | 0.250 | [0.153, 0.361] | 0.133 | 0.000 | 1.000 | 0.000 | 0.653 |
-| **B2 (CP1+CP4 Endpoints)** | 0.250 | [0.153, 0.361] | 0.133 | 0.000 | 1.000 | 0.000 | 0.653 |
-| **B3 (Detection = Origin)** | 1.000 | [1.000, 1.000] | 1.000 | 0.000 | 1.000 | 0.000 | 0.000 |
-| **B4 (LLM Judge: LLaMA-3.3-70B)** | 0.944 | [0.889, 0.986] | 0.933 | 0.958 | 0.000 | 0.042 | 0.028 |
-| **B5 (Ported Legacy V3 Rules)** | 0.972 | [0.931, 1.000] | 0.967 | 0.000 | 1.000 | 0.000 | 0.014 |
+`python -m trinetra_link.cli demo run` executes the full pipeline on a **synthetic dry run (seed 777)** to show that every stage runs end to end. Its outputs are watermarked `SYNTHETIC DRY RUN — NOT A RESULT` and must not be cited as evidence about the method.
 
-*Key Findings:* While Baseline B3 achieves high stage accuracy when evidence is clean, its Unwarranted Bounded-tamper Rate (UBR) is 100% on degraded evidence—it blindly attributes noise to physical stages. TriNetra-Link achieves 100% Appropriate Abstention Rate (AAR = 1.000) and 0% UBR.
+Experiments E1–E3 refuse to run on journeys that are not in the capture store. `--pipeline-self-test` lets them rebuild missing journeys from labels to exercise the code; those outputs are watermarked `PIPELINE SELF-TEST ON LABEL-BUILT JOURNEYS — NOT A RESULT`.
 
 ---
 
@@ -145,16 +137,16 @@ Primary evaluation across the 96 physical test split journeys (Experiment E1):
   ```bash
   python -m venv .venv
   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-  pip install -r legacy/phase-2/requirements.txt
-  pip install sqlmodel typer scikit-image pytest-cov matplotlib scipy
+  pip install -e ".[dev]"          # add ,kit for the staging-kit PDF generator (reportlab)
   ```
 
 ### One-Command Reproduction
-Execute the entire research pipeline from scratch (linters, unit tests, gate checks, calibration fitting, and experiments E1, E2, E3):
+Runs the guards, the data linter and the test suite. If captured study data exist (store, split manifest, staging log, `scales.json`) it then fits on the calibration split and runs E1 (full and field masks), E2 and E3 with the fitted θ; otherwise it runs the watermarked synthetic dry run and says so.
 ```bash
 bash reproduce.sh
+PILOT_FILE=data/derived/pilot_journeys.json bash reproduce.sh   # also re-check Gate G-3
 ```
-All LaTeX tables, CSV files, and figures will be written to `results/reproduce_<timestamp>/`.
+Outputs are written to `results/reproduce_<timestamp>/`.
 
 ---
 
@@ -167,8 +159,8 @@ The unified research CLI is accessible via `python -m trinetra_link.cli`:
 python -m trinetra_link.cli scale record --scale-id SCALE_01 --load-g 500.0 -r 500.05 -r 500.02 -r 499.98
 python -m trinetra_link.cli scale fit --scale-id SCALE_01
 
-# 2. Pilot Verification (Gate G-3)
-python -m trinetra_link.cli pilot check
+# 2. Pilot Verification (Gate G-3) — needs the 10 captured pilot journeys
+python -m trinetra_link.cli pilot check --fixtures data/derived/pilot_journeys.json
 
 # 3. Staging Cohort Assignment & Stratified Split
 python -m trinetra_link.cli staging assign --n 120 --seed 42
@@ -180,15 +172,19 @@ python -m trinetra_link.cli truth derive
 python -m trinetra_link.cli truth audit --sample 0.25
 
 # 5. Fit Thresholds (Calibration Split Only)
-python -m trinetra_link.cli fit --split calibration
+python -m trinetra_link.cli fit --split calibration --db data/trinetra_store.sqlite
 
-# 6. Run Empirical Experiments
-python -m trinetra_link.cli eval e1 --split test
-python -m trinetra_link.cli eval e2 --split test
-python -m trinetra_link.cli eval ablations --split test
-python -m trinetra_link.cli eval all --split test
+# 6. Run Empirical Experiments with the fitted theta
+python -m trinetra_link.cli eval e1 --split test --db data/trinetra_store.sqlite --theta <fitted> --mask full
+python -m trinetra_link.cli eval e1 --split test --db data/trinetra_store.sqlite --theta <fitted> --mask field
+python -m trinetra_link.cli eval e2 --split test --db data/trinetra_store.sqlite --theta <fitted>
+python -m trinetra_link.cli eval ablations --split test --db data/trinetra_store.sqlite --theta <fitted>
 
-# 7. Launch Ingest API and Mobile Web Capture
+# Synthetic end-to-end dry run (watermarked, not a result)
+python -m trinetra_link.cli demo run
+
+# 7. Launch Ingest API and Mobile Web Capture (token required; CORS off unless TRINETRA_CORS_ORIGINS is set)
+export DEVICE_INGEST_TOKEN=<long random token>
 python -m trinetra_link.cli serve --port 8000
 
 # 8. Launch Blinded Research Viewer Web App
@@ -220,12 +216,12 @@ TriNetra-Link includes a read-only visualizer for demonstration and figure gener
 │   ├── public/                 # Public benchmark datasets
 │   └── restricted/             # EMBARGOED: Staging logs and truth assignments (git-ignored)
 ├── docs/                       # SOPs, Datasheet, JSON schemas, architectural decisions
-├── legacy/                     # Archived Phase 1 & 2 prototypes and tests
+├── legacy/                     # Archived Phase 1 & 2 prototypes, tests and superseded V3 docs
 ├── research/
 │   ├── amendments/             # Formal protocol amendments (AMENDMENT_v2.6.md)
 │   └── reviewed_v2/            # Preregistration protocol v2.5
-├── results/                    # Run outputs, Table III (CSV/LaTeX), figure PDFs/PNGs
-├── tests/                      # 82 automated unit & integration tests
+├── results/                    # Run outputs (git-ignored; empty until the study runs)
+├── tests/                      # 115 automated unit & integration tests
 ├── trinetra_link/              # Core TriNetra-Link Python package
 │   ├── attribution/            # Algorithm 1, Bayesian coalescence, operational policy
 │   ├── baselines/              # Baselines B1 through B5 implementations
@@ -238,6 +234,7 @@ TriNetra-Link includes a read-only visualizer for demonstration and figure gener
 │   ├── staging/                # Cell assignment, staging log, and determinability rule
 │   └── viewer/                 # Blinded research visualizer web application
 ├── CITATION.cff                # Citation File Format metadata
+├── pyproject.toml              # Package metadata and dependencies (pip install -e ".[dev]")
 ├── LICENSE                     # MIT License (code) + CC BY 4.0 (data/docs)
 ├── reproduce.sh                # Automated reproduction script
 └── STATUS.md                   # Real physical trial execution tracking

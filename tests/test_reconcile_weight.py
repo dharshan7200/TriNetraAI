@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-import pytest
 from trinetra_link.reconcile.weight import load_scale_parameters, reconcile_weights
 from trinetra_link.schema.models import CheckpointObservation
 

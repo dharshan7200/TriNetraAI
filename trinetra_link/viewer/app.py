@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import os
+
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import FileResponse
 import numpy as np
 
 from trinetra_link.config import DERIVED_DATA_DIR, REPO_ROOT
 from trinetra_link.eval.pipeline import predict_trinetra_link
 from trinetra_link.quality.gate import QualityGate
-from trinetra_link.schema.models import CheckpointObservation, Journey
 from trinetra_link.store.database import Store
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -65,13 +66,16 @@ def create_viewer_app(
         description="Blinded read-only visualizer for multi-checkpoint chain-of-custody attribution.",
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["GET"],
-        allow_headers=["*"],
-    )
+    # The viewer page is same-origin; extra origins come from TRINETRA_CORS_ORIGINS (comma-separated).
+    cors_origins = [o.strip() for o in os.getenv("TRINETRA_CORS_ORIGINS", "").split(",") if o.strip()]
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=False,
+            allow_methods=["GET"],
+            allow_headers=["Content-Type"],
+        )
 
     # Resolve store database
     effective_db = Path(db_path) if db_path else None

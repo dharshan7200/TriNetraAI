@@ -54,3 +54,4 @@ results/*
 
 pilot_kit/
 main_kit/
+*.egg-info/

@@ -4,7 +4,6 @@ import csv
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-import sys
 from typing import List, Optional
 import typer
 
@@ -13,11 +12,11 @@ from trinetra_link.config import DERIVED_DATA_DIR, REPO_ROOT, RESTRICTED_DATA_DI
 from trinetra_link.fit import fit_thresholds
 from trinetra_link.scale.characterise import characterise_scale, record_reference_readings
 from trinetra_link.schema.export import export_schemas
-from trinetra_link.schema.models import CheckpointObservation, ImageRef, Journey
+from trinetra_link.schema.models import Journey
 from trinetra_link.staging.assign import assign_staging_cells
 from trinetra_link.staging.audit import compute_rule_audit_kappa, sample_journeys_for_audit
 from trinetra_link.staging.commit import commit_ground_truth_manifest
-from trinetra_link.eval.e1 import evaluate_e1
+from trinetra_link.eval.e1 import evaluate_e1, fmt_metric
 from trinetra_link.eval.e2 import evaluate_e2
 from trinetra_link.eval.e3 import evaluate_e3
 from trinetra_link.staging.determinability import derive_ground_truth, get_determinability_rule_hash
@@ -69,6 +68,9 @@ def export_schema_cmd(
 def fit_cmd(
     split: str = typer.Option("calibration", "--split", "-s", help="Dataset split to fit thresholds on (must be calibration)"),
     db_path: Optional[str] = typer.Option(None, "--db", help="Path to SQLite store"),
+    manifest: Optional[str] = typer.Option(None, "--manifest", "-m", help="Path to split_manifest.json"),
+    staging_log: Optional[str] = typer.Option(None, "--staging-log", help="Path to staging log CSV"),
+    scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
     allow_synthetic_dry_run: bool = typer.Option(False, "--allow-synthetic-dry-run", help="Explicitly permit fitting using synthetic scale/floor fixtures"),
 ) -> None:
     """Fit quality, weight, visual, and Bayesian thresholds on calibration split."""
@@ -80,10 +82,30 @@ def fit_cmd(
         )
         raise typer.Exit(code=1)
 
+    manifest_path = Path(manifest) if manifest else DERIVED_DATA_DIR / "split_manifest.json"
+    if not manifest_path.exists():
+        typer.secho(f"Fit failed: split manifest not found at {manifest_path}. Run 'trinetra split' first.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2)
+    with open(manifest_path, "r", encoding="utf-8") as fp:
+        cal_codes = json.load(fp).get("calibration_journey_codes", [])
     store = Store(db_path)
-    journeys = []
+    journeys = [j for j in (store.get_journey(c) for c in cal_codes) if j is not None]
+    if len(journeys) != len(cal_codes) or not journeys:
+        typer.secho(
+            f"Fit failed: {len(cal_codes) - len(journeys)} of {len(cal_codes)} calibration journeys have no captured "
+            f"observations in the store. Capture them before fitting.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
     try:
-        res = fit_thresholds(journeys, split_name=split, allow_synthetic_dry_run=allow_synthetic_dry_run)
+        res = fit_thresholds(
+            journeys,
+            split_name=split,
+            staging_log_path=staging_log,
+            scales_path=scales,
+            allow_synthetic_dry_run=allow_synthetic_dry_run,
+        )
         typer.secho(f"Successfully fitted thresholds: {res['saved_path']}", fg=typer.colors.GREEN)
         typer.echo(f"  theta (quality)   = {res['theta']:.2f}")
         typer.echo(f"  z (weight)        = {res['z_weight']:.2f}")
@@ -223,7 +245,7 @@ def staging_assign_cmd(
     """Generate randomized 8-cell physical staging assignments for N=120 journeys."""
     try:
         res = assign_staging_cells(n=n, seed=seed, output_dir=output_dir)
-        typer.secho(f"Staging cell assignment generated successfully:", fg=typer.colors.GREEN)
+        typer.secho("Staging cell assignment generated successfully:", fg=typer.colors.GREEN)
         typer.echo(f"  CSV:  {res['csv_path']}")
         typer.echo(f"  JSON: {res['json_path']}")
         typer.echo(f"  N:    {res['n']} journeys across 8 scenario cells (seed={res['seed']})")
@@ -364,7 +386,7 @@ def truth_audit_cmd(
             rater_b.append(label_b)
 
         kappa = compute_rule_audit_kappa(rater_a, rater_b)
-        typer.secho(f"Independent Rule Audit Complete:", fg=typer.colors.GREEN)
+        typer.secho("Independent Rule Audit Complete:", fg=typer.colors.GREEN)
         typer.echo(f"  Sampled Journeys: {len(sample)}")
         typer.echo(f"  Agreement Kappa:  {kappa:.4f}")
     except Exception as e:
@@ -379,59 +401,37 @@ def pilot_check_cmd(
     fixtures_file: Optional[str] = typer.Option(None, "--fixtures", "-f", help="Path to pilot journeys JSON file"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Path for frozen quality floors JSON"),
 ) -> None:
-    """Run Gate G-3 pilot evaluation across 10 pilot journeys and freeze quality floors."""
-    # Load pilot journeys
-    journeys: List[Journey] = []
-    if fixtures_file:
-        fpath = Path(fixtures_file)
-        if fpath.exists():
-            with open(fpath, "r", encoding="utf-8") as fp:
-                data = json.load(fp)
-                if isinstance(data, list):
-                    for item in data:
-                        journeys.append(Journey.model_validate(item))
-                elif isinstance(data, dict) and "journeys" in data:
-                    for item in data["journeys"]:
-                        journeys.append(Journey.model_validate(item))
+    """Run Gate G-3 pilot evaluation across 10 captured pilot journeys and freeze quality floors.
 
-    # If no external file given or empty, generate 10 clean pilot journey records
+    The gate can only pass on physical data: a pilot file with exactly 10 journeys whose photos exist on disk.
+    """
+    def refuse(reason: str) -> None:
+        typer.secho(f"Pilot check refused: {reason}", fg=typer.colors.RED, err=True)
+        typer.echo("Gate G-3 Status:     NOT RUN (a gate needing physical activity passes only on captured pilot data)")
+        raise typer.Exit(code=2)
+
+    if not fixtures_file:
+        refuse("no pilot file given. Pass --fixtures <pilot_journeys.json> with the 10 captured pilot journeys.")
+    fpath = Path(fixtures_file)
+    if not fpath.exists():
+        refuse(f"pilot file not found at {fpath}.")
+    with open(fpath, "r", encoding="utf-8") as fp:
+        data = json.load(fp)
+    items = data.get("journeys", []) if isinstance(data, dict) else data
+    if isinstance(data, dict) and data.get("synthetic") is True:
+        refuse("the pilot file is marked synthetic.")
+    journeys: List[Journey] = [Journey.model_validate(item) for item in items]
     if len(journeys) != 10:
-        journeys = []
-        for idx in range(1, 11):
-            jcode = f"PILOT-{idx:02d}"
-            cps = []
-            for k in range(1, 5):
-                cps.append(CheckpointObservation(
-                    journey_code=jcode,
-                    cp_index=k,
-                    ts_utc=datetime.now(timezone.utc),
-                    device_id="DEV_PILOT_01",
-                    operator_id="OP_PILOT_01",
-                    weights_g=[500.1, 500.2, 500.1],
-                    scale_id="SCALE_PILOT_01",
-                    scale_status="OK",
-                    images=[
-                        ImageRef(
-                            side="TOP",
-                            path=f"data/pilot/{jcode}_CP{k}_TOP.jpg",
-                            sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                            w=1920,
-                            h=1080,
-                        ),
-                        ImageRef(
-                            side="FRONT",
-                            path=f"data/pilot/{jcode}_CP{k}_FRONT.jpg",
-                            sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                            w=1920,
-                            h=1080,
-                        ),
-                    ],
-                ))
-            journeys.append(Journey(
-                journey_code=jcode,
-                checkpoints=cps,
-                metadata={"product_category": "ELECTRONICS", "packaging_type": "CARTON", "tare_weight_g": 50.0},
-            ))
+        refuse(f"expected exactly 10 pilot journeys, found {len(journeys)}.")
+    missing_images = [
+        img.path
+        for j in journeys
+        for cp in j.checkpoints
+        for img in cp.images
+        if not (Path(img.path).exists() or (REPO_ROOT / img.path).exists())
+    ]
+    if missing_images or not any(cp.images for j in journeys for cp in j.checkpoints):
+        refuse(f"{len(missing_images)} pilot photos referenced in the file are not on disk; capture them first.")
 
     try:
         res = evaluate_pilot_journeys(journeys, output_path=output)
@@ -439,7 +439,7 @@ def pilot_check_cmd(
         typer.secho(f"Gate G-3 Pilot Check Completed: {res['checkpoint_pass_rate'] * 100:.1f}% pass rate", fg=status_color)
         typer.echo(f"  Gate G-3 Status:     {'PASSED' if res['gate_passed'] else 'FAILED'}")
         typer.echo(f"  Frozen Floors Saved: {output or DERIVED_DATA_DIR / 'frozen_quality_floors.json'}")
-        typer.echo(f"  Pilot journeys strictly excluded from experimental analysis.")
+        typer.echo("  Pilot journeys strictly excluded from experimental analysis.")
     except Exception as e:
         typer.secho(f"Pilot check failed: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1)
@@ -467,6 +467,9 @@ def eval_e1_cmd(
     bootstrap: int = typer.Option(2000, "--bootstrap", "-b", help="Bootstrap resamples for 95% CIs"),
     allow_synthetic_dry_run: bool = typer.Option(False, "--allow-synthetic-dry-run", help="Explicitly permit evaluation on synthetic demo data (refused by default)"),
     mask: str = typer.Option("full", "--mask", help="Evidence mask: 'full' (all CP1-CP4 evidence) or 'field' (weights only at CP1 and CP4)"),
+    db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
+    theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Primary Benchmark Comparison against baselines B1..B5 on test split (E1)."""
     if split != "test":
@@ -483,6 +486,9 @@ def eval_e1_cmd(
             b_bootstrap=bootstrap,
             allow_synthetic_dry_run=allow_synthetic_dry_run,
             mask=mask,
+            theta=theta,
+            store_path=db_path,
+            allow_label_rebuild=pipeline_self_test,
         )
         typer.secho(f"Experiment E1 Completed Successfully -> Run ID: {res['run_id']} (mask={mask})", fg=typer.colors.GREEN)
         typer.echo(f"  Artifacts saved to: {Path(res['artifacts']['csv_table']).parent}")
@@ -494,13 +500,22 @@ def eval_e1_cmd(
         for row in res["results_summary"]:
             typer.echo(f"  {row['method']:25s} | Acc (DET): {row['stage_acc_det']:.3f} {row['stage_acc_ci']} | AAR: {row['aar_non_det']:.3f}")
 
+        mis = res.get("customer_misattribution", {})
+        if mis:
+            typer.echo("\nBlamed on the customer although the true stage is S1 or S3 (or the journey is not determinable):")
+            for m_name, m in mis.items():
+                typer.echo(
+                    f"  {m_name:25s} | {m['blamed_on_customer']}/{m['tampered_outside_s2']} tampered journeys, "
+                    f"{m['non_determinable_blamed_on_customer']}/{m['non_determinable']} non-determinable journeys"
+                )
+
         if res.get("subgroup_breakdowns"):
-            typer.echo("\nSubgroup Breakdown (weight_matched & mass_change_g):")
+            typer.echo("\nSubgroup Breakdown (weight_matched, mass_change_g, seal_action):")
             for s in res["subgroup_breakdowns"]:
                 if s["method"] in ("TriNetra-Link (Alg 1)", "B1 (CP4-only)", "B2 (Endpoints CP1+CP4)"):
                     typer.echo(
                         f"  [{s['subgroup_dimension']}={s['subgroup_value']}] {s['method']:23s} | "
-                        f"Acc (DET): {s['stage_acc_det']:.3f} | AAR: {s['aar_non_det']:.3f} (N={s['n_total']})"
+                        f"Acc (DET): {fmt_metric(s['stage_acc_det'])} | AAR: {fmt_metric(s['aar_non_det'])} (N={s['n_total']})"
                     )
     except Exception as e:
         typer.secho(f"E1 evaluation failed: {e}", fg=typer.colors.RED, err=True)
@@ -514,6 +529,10 @@ def eval_e2_cmd(
     staging_log: Optional[str] = typer.Option(None, "--staging-log", help="Path to staging log CSV"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Target output results directory"),
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Experiment run ID"),
+    scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
+    db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
+    theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Controlled Perturbation Robustness Evaluation on test split (E2)."""
     if split != "test":
@@ -526,6 +545,10 @@ def eval_e2_cmd(
             staging_log_path=staging_log,
             output_dir=output,
             run_id=run_id,
+            theta=theta,
+            scales_path=scales,
+            store_path=db_path,
+            allow_label_rebuild=pipeline_self_test,
         )
         typer.secho(f"Experiment E2 Completed Successfully -> Run ID: {res['run_id']}", fg=typer.colors.GREEN)
         typer.echo(f"  Evaluated {res['conditions_evaluated']} perturbation conditions across {res['total_test_journeys']} journeys.")
@@ -545,6 +568,9 @@ def eval_ablations_cmd(
     scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Target output results directory"),
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Experiment run ID"),
+    db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
+    theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
+    pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Architectural Component Ablation Study on test split (E3)."""
     if split != "test":
@@ -558,6 +584,9 @@ def eval_ablations_cmd(
             scales_path=scales,
             output_dir=output,
             run_id=run_id,
+            theta=theta,
+            store_path=db_path,
+            allow_label_rebuild=pipeline_self_test,
         )
         typer.secho(f"Experiment E3 Completed Successfully -> Run ID: {res['run_id']}", fg=typer.colors.GREEN)
         typer.echo(f"  CSV Table:   {res['artifacts']['csv_table']}")
@@ -578,14 +607,19 @@ def eval_all_cmd(
     staging_log: Optional[str] = typer.Option(None, "--staging-log", help="Path to staging log CSV"),
     scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Base output results directory"),
+    db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
+    theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
 ) -> None:
     """Run all empirical experiments (E1, E2, E3) in sequence on the test split."""
     typer.echo("=== Starting Experiment E1: Primary Comparison ===")
-    eval_e1_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None, bootstrap=2000)
+    eval_e1_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None, bootstrap=2000,
+                allow_synthetic_dry_run=False, mask="full", db_path=db_path, theta=theta, pipeline_self_test=False)
     typer.echo("\n=== Starting Experiment E2: Perturbations ===")
-    eval_e2_cmd(split=split, manifest=manifest, staging_log=staging_log, output=output, run_id=None)
+    eval_e2_cmd(split=split, manifest=manifest, staging_log=staging_log, output=output, run_id=None,
+                scales=scales, db_path=db_path, theta=theta, pipeline_self_test=False)
     typer.echo("\n=== Starting Experiment E3: Architectural Ablations ===")
-    eval_ablations_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None)
+    eval_ablations_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None,
+                       db_path=db_path, theta=theta, pipeline_self_test=False)
     typer.secho("\n[SUCCESS] All empirical evaluations (E1, E2, E3) completed successfully.", fg=typer.colors.GREEN)
 
 
@@ -716,7 +750,7 @@ def demo_run_cmd(
             if s["method"] in ("TriNetra-Link (Alg 1)", "TriNetra-Link (Bayes)", "B1 (CP4-only)", "B2 (Endpoints CP1+CP4)"):
                 typer.echo(
                     f"  [{s['subgroup_dimension']}={s['subgroup_value']}] {s['method']:23s} | "
-                    f"Acc (DET): {s['stage_acc_det']:.3f} | AAR: {s['aar_non_det']:.3f} (N={s['n_total']})"
+                    f"Acc (DET): {fmt_metric(s['stage_acc_det'])} | AAR: {fmt_metric(s['aar_non_det'])} (N={s['n_total']})"
                 )
 
     typer.secho("\n[PASS] All demo artifacts successfully watermarked: 'SYNTHETIC DRY RUN — NOT A RESULT'", fg=typer.colors.GREEN)

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import math
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from scipy import stats
-from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.metrics import f1_score
 
 
 def compute_stage_accuracy(
