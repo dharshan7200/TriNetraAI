@@ -209,18 +209,11 @@ def evaluate_e1(
                 import csv
                 with open(demo_log_csv, "r", encoding="utf-8") as fp:
                     staging_rows = list(csv.DictReader(fp))
-        else:
-            # Load from restricted assignment sheet if log empty
-            assign_csv = REPO_ROOT / "data" / "restricted" / "staging_assignment_120.csv"
-            if assign_csv.exists():
-                import csv
-                with open(assign_csv, "r", encoding="utf-8") as fp:
-                    staging_rows = list(csv.DictReader(fp))
-                    for r in staging_rows:
-                        r["manipulation_interval"] = r.get("target_interval", "none")
+        # Real evaluations never fall back to the planned assignment sheet: ground truth must come
+        # from the filmed staging log of what was actually done.
 
     if not staging_rows:
-        raise FileNotFoundError("Neither staging log nor assignment sheet found in data/restricted/ or demo_data/")
+        raise FileNotFoundError("Staging log not found or empty; ground truth is derived only from the staging log.")
 
     # Filter to test split
     test_staging = [r for r in staging_rows if r["journey_code"] in test_codes]

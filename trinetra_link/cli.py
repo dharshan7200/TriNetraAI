@@ -44,6 +44,8 @@ app.add_typer(truth_app, name="truth")
 app.add_typer(pilot_app, name="pilot")
 app.add_typer(eval_app, name="eval")
 app.add_typer(demo_app, name="demo")
+placeholder_app = typer.Typer(help="Placeholder study data (120 simulated journeys) for running the full pipeline before capture")
+app.add_typer(placeholder_app, name="placeholder")
 
 
 
@@ -540,6 +542,7 @@ def eval_e2_cmd(
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
     visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
     visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
+    allow_synthetic_dry_run: bool = typer.Option(False, "--allow-synthetic-dry-run", help="Permit synthetic or placeholder journeys (outputs are watermarked NOT A RESULT)"),
     pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Controlled Perturbation Robustness Evaluation on test split (E2)."""
@@ -559,6 +562,7 @@ def eval_e2_cmd(
             scales_path=scales,
             store_path=db_path,
             allow_label_rebuild=pipeline_self_test,
+            allow_synthetic_dry_run=allow_synthetic_dry_run,
         )
         typer.secho(f"Experiment E2 Completed Successfully -> Run ID: {res['run_id']}", fg=typer.colors.GREEN)
         typer.echo(f"  Evaluated {res['conditions_evaluated']} perturbation conditions across {res['total_test_journeys']} journeys.")
@@ -582,6 +586,7 @@ def eval_ablations_cmd(
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
     visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
     visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
+    allow_synthetic_dry_run: bool = typer.Option(False, "--allow-synthetic-dry-run", help="Permit synthetic or placeholder journeys (outputs are watermarked NOT A RESULT)"),
     pipeline_self_test: bool = typer.Option(False, "--pipeline-self-test", help="Rebuild missing journeys from labels to test the code path; outputs are watermarked NOT A RESULT"),
 ) -> None:
     """Run Architectural Component Ablation Study on test split (E3)."""
@@ -601,6 +606,7 @@ def eval_ablations_cmd(
             visual_method=visual_method,
             store_path=db_path,
             allow_label_rebuild=pipeline_self_test,
+            allow_synthetic_dry_run=allow_synthetic_dry_run,
         )
         typer.secho(f"Experiment E3 Completed Successfully -> Run ID: {res['run_id']}", fg=typer.colors.GREEN)
         typer.echo(f"  CSV Table:   {res['artifacts']['csv_table']}")
@@ -622,6 +628,7 @@ def eval_all_cmd(
     scales: Optional[str] = typer.Option(None, "--scales", help="Path to scales.json"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Base output results directory"),
     db_path: Optional[str] = typer.Option(None, "--db", help="Path to the SQLite store holding the captured journeys"),
+    allow_synthetic_dry_run: bool = typer.Option(False, "--allow-synthetic-dry-run", help="Permit synthetic or placeholder journeys (outputs are watermarked NOT A RESULT)"),
     theta: float = typer.Option(0.70, "--theta", help="Trust threshold theta fitted on the calibration split"),
     visual_threshold: float = typer.Option(0.25, "--visual-threshold", help="Visual change threshold fitted on the calibration split"),
     visual_method: str = typer.Option("global", "--visual-method", help="'global' (preregistered 1 - SSIM) or 'local' (registered block-wise)"),
@@ -629,17 +636,31 @@ def eval_all_cmd(
     """Run all empirical experiments (E1, E2, E3) in sequence on the test split."""
     typer.echo("=== Starting Experiment E1: Primary Comparison ===")
     eval_e1_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None, bootstrap=2000,
-                allow_synthetic_dry_run=False, mask="full", db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
+                allow_synthetic_dry_run=allow_synthetic_dry_run, mask="full", db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
     typer.echo("\n=== Starting Experiment E2: Perturbations ===")
     eval_e2_cmd(split=split, manifest=manifest, staging_log=staging_log, output=output, run_id=None,
-                scales=scales, db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
+                scales=scales, db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, allow_synthetic_dry_run=allow_synthetic_dry_run, pipeline_self_test=False)
     typer.echo("\n=== Starting Experiment E3: Architectural Ablations ===")
     eval_ablations_cmd(split=split, manifest=manifest, staging_log=staging_log, scales=scales, output=output, run_id=None,
-                       db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, pipeline_self_test=False)
+                       db_path=db_path, theta=theta, visual_threshold=visual_threshold, visual_method=visual_method, allow_synthetic_dry_run=allow_synthetic_dry_run, pipeline_self_test=False)
     typer.secho("\n[SUCCESS] All empirical evaluations (E1, E2, E3) completed successfully.", fg=typer.colors.GREEN)
 
 
 # --- Demo Subcommands (Phase 1 Review Demo) ---
+
+@placeholder_app.command("create")
+def placeholder_create_cmd(
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="Target folder (default data/placeholder)"),
+    seed: int = typer.Option(120, "--seed", help="Simulator seed"),
+) -> None:
+    """Create 120 SIMULATED placeholder journeys in the real study layout (never report them as results)."""
+    from trinetra_link.sim.placeholder import PLACEHOLDER_WATERMARK, create_placeholder_dataset
+    res = create_placeholder_dataset(output_dir, seed=seed)
+    typer.secho(PLACEHOLDER_WATERMARK, fg=typer.colors.YELLOW)
+    typer.echo(f"  {res['n']} journeys ({res['calibration']} calibration / {res['test']} test) -> {res['output_dir']}")
+    for key in ("db", "manifest", "staging_log", "scales"):
+        typer.echo(f"  {key:12s} {res[key]}")
+
 
 @demo_app.command("generate")
 def demo_generate_cmd(

@@ -25,7 +25,7 @@
   - Multimodal Reconcilers: Weight anomaly testing, Identity parity rules 1–6, Homography visual change score (`reconcile/`).
   - Attribution Algorithm 1 (deterministic interval isolation) and Bayesian quality-exponent coalescence (`attribution/`).
   - Model fitting CLI `trinetra fit --split calibration` (`fit.py`).
-  - **Tests:** 123 passing in `tests/`; 75% line coverage of `trinetra_link/` (2026-11-14).
+  - **Tests:** 124 passing in `tests/`; 75% line coverage of `trinetra_link/` (2026-11-14).
 
 - [x] **Phase B: Capture Path**
   - High-throughput FastAPI Ingest API (`ingest/api.py`).
@@ -87,3 +87,7 @@ The November 2026 review found that several code paths could produce numbers tha
 ## 5. Simulation study (2026-11-14)
 
 `python -m trinetra_link.sim.run_study main` generates a 960-journey simulated benchmark with nuisance effects drawn independently of the scenario cell, fits on its calibration split and runs E1 (full and field masks) and the E3 ablations; `sweep` runs sensitivity points. All outputs are SIMULATED; they stress-test the method and do not replace the physical study.
+
+## 6. Placeholder data (2026-11-15)
+
+`data/placeholder/` (git-ignored, regenerate with `trinetra placeholder create`) holds 120 SIMULATED journeys in the real study layout, so the whole pipeline (fit, E1 full/field, E2, E3) runs end to end today via `PLACEHOLDER=1 bash reproduce.sh`. They are not data: experiments refuse them without `--allow-synthetic-dry-run` and watermark every output. The Gate G-3 pilot check deliberately still refuses them. Also fixed: E2 and E3 now use the characterised scale file in the weight test (they used the 0.35 g fallback) and, like E1, never take ground truth from the planned assignment sheet.

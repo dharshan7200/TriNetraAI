@@ -125,6 +125,8 @@ Under Protocol Amendment v2.6.0, all human-reviewer calibration requirements (Ga
 
 `python -m trinetra_link.cli demo run` executes the full pipeline on a **synthetic dry run (seed 777)** to show that every stage runs end to end. Its outputs are watermarked `SYNTHETIC DRY RUN — NOT A RESULT` and must not be cited as evidence about the method.
 
+**Placeholder data.** `python -m trinetra_link.cli placeholder create` writes 120 simulated journeys (24 calibration / 96 test, protocol cell quotas) to `data/placeholder/` in the same layout as the real study, so fitting and E1–E3 can be run end to end before capture (`PLACEHOLDER=1 bash reproduce.sh`). Journey codes start with `PLACEHOLDER-`, every experiment refuses them without `--allow-synthetic-dry-run`, and every output is watermarked. When the physical journeys are captured to the real paths, `bash reproduce.sh` runs the same pipeline on them unchanged.
+
 **Simulation study.** `python -m trinetra_link.sim.run_study main --out results/sim` generates a 960-journey simulated benchmark (scale faults, poor photographs, unreported glare and identifier misreads drawn independently of the scenario), fits on its calibration split and runs E1 (full and field masks) and the E3 ablations; `run_study sweep --param <name> --value <v>` runs the sensitivity points. These are simulated results that stress-test the method; they do not replace the physical study.
 
 Experiments E1–E3 refuse to run on journeys that are not in the capture store. `--pipeline-self-test` lets them rebuild missing journeys from labels to exercise the code; those outputs are watermarked `PIPELINE SELF-TEST ON LABEL-BUILT JOURNEYS — NOT A RESULT`.
@@ -147,6 +149,7 @@ Runs the guards, the data linter and the test suite. If captured study data exis
 ```bash
 bash reproduce.sh
 PILOT_FILE=data/derived/pilot_journeys.json bash reproduce.sh   # also re-check Gate G-3
+PLACEHOLDER=1 bash reproduce.sh   # whole study pipeline on 120 simulated placeholder journeys (NOT results)
 ```
 Outputs are written to `results/reproduce_<timestamp>/`.
 
@@ -223,7 +226,7 @@ TriNetra-Link includes a read-only visualizer for demonstration and figure gener
 │   ├── amendments/             # Formal protocol amendments (AMENDMENT_v2.6.md)
 │   └── reviewed_v2/            # Preregistration protocol v2.5
 ├── results/                    # Run outputs (git-ignored; empty until the study runs)
-├── tests/                      # 123 automated unit & integration tests
+├── tests/                      # 124 automated unit & integration tests
 ├── trinetra_link/              # Core TriNetra-Link Python package
 │   ├── attribution/            # Algorithm 1, Bayesian coalescence, operational policy
 │   ├── baselines/              # Baselines B1 through B5 implementations

@@ -9,8 +9,8 @@ matplotlib.use("Agg")  # non-interactive backend — no Tk/display needed
 import matplotlib.pyplot as plt
 import numpy as np
 
-from trinetra_link.config import DERIVED_DATA_DIR, REPO_ROOT, RESULTS_DIR
-from trinetra_link.eval.loading import SELF_TEST_WATERMARK, load_evaluation_journeys
+from trinetra_link.config import DERIVED_DATA_DIR, RESULTS_DIR
+from trinetra_link.eval.loading import SELF_TEST_WATERMARK, SYNTHETIC_WATERMARK, load_evaluation_journeys, require_real_or_allowed
 from trinetra_link.eval.metrics import (
     compute_abstention_metrics,
     compute_macro_f1,
@@ -34,6 +34,7 @@ def evaluate_e3(
     visual_method: str = "global",
     store_path: Optional[Path | str] = None,
     allow_label_rebuild: bool = False,
+    allow_synthetic_dry_run: bool = False,
 ) -> Dict[str, Any]:
     """
     Execute Experiment E3: Architectural Ablation Analysis.
@@ -57,17 +58,12 @@ def evaluate_e3(
         split_data = json.load(f)
 
     test_codes = set(split_data.get("test_journey_codes", []))
+    is_synthetic = require_real_or_allowed(split_data, s_path, allow_synthetic_dry_run or allow_label_rebuild)
 
     # 2. Load staging log
     staging_rows = load_staging_log(staging_log_path)
     if not staging_rows:
-        assign_csv = REPO_ROOT / "data" / "restricted" / "staging_assignment_120.csv"
-        if assign_csv.exists():
-            import csv
-            with open(assign_csv, "r", encoding="utf-8") as fp:
-                staging_rows = list(csv.DictReader(fp))
-                for r in staging_rows:
-                    r["manipulation_interval"] = r.get("target_interval", "none")
+        raise FileNotFoundError("Staging log not found or empty; ground truth is derived only from the staging log.")
 
     test_staging = [r for r in staging_rows if r["journey_code"] in test_codes]
     test_journeys = load_evaluation_journeys(test_staging, store_path=store_path, allow_label_rebuild=allow_label_rebuild)
@@ -91,7 +87,8 @@ def evaluate_e3(
         omega_stars.append(omega_star)
 
     # Ablation configurations: every variant uses the same fitted theta and scale noise model
-    common = {"theta": theta, "visual_threshold": visual_threshold, "visual_method": visual_method, "scales_config": scales_config}
+    common = {"theta": theta, "visual_threshold": visual_threshold, "visual_method": visual_method, "scales_config": scales_config,
+              "scales_path": sc_path if sc_path.exists() else None}
     ablation_configs: Dict[str, Callable[[Journey], Any]] = {
         "TriNetra-Link (Full - Alg 1)": lambda j: predict_trinetra_link(j, mode="algorithm1", **common),
         "TriNetra-Link (Full - Bayes)": lambda j: predict_trinetra_link(j, mode="bayes", **common),
@@ -134,6 +131,8 @@ def evaluate_e3(
     with open(csv_path, "w", encoding="utf-8") as fp:
         if allow_label_rebuild:
             fp.write(f"# {SELF_TEST_WATERMARK}\n")
+        if is_synthetic:
+            fp.write(f"# {SYNTHETIC_WATERMARK}\n")
         fp.write("Model Variant,Stage Acc (DET),Macro-F1 (S1-S3),AAR (Non-DET),UBR (Non-DET),UAR (DET),AURC\n")
         for r in results_table:
             fp.write(f"{r['model_variant']},{r['stage_acc_det']},{r['macro_f1']},{r['aar_non_det']},{r['ubr_non_det']},{r['uar_det']},{r['aurc']}\n")
@@ -189,6 +188,8 @@ def evaluate_e3(
     manifest["journeys_from"] = "label rebuild (self-test)" if allow_label_rebuild else "captured store"
     if allow_label_rebuild:
         manifest["watermark"] = SELF_TEST_WATERMARK
+    elif is_synthetic:
+        manifest["watermark"] = SYNTHETIC_WATERMARK
 
     with open(target_dir / "provenance.json", "w", encoding="utf-8") as fp:
         json.dump(manifest, fp, indent=2)

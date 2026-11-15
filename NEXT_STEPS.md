@@ -5,9 +5,9 @@
 ## Done
 
 - **Steps 1 and 2 are complete** (commit `1bcb31a`): B1 as CP4-only practice, B2 as endpoints, `--mask full|field`, subgroup tables, layered seals (`reconcile/seals.py`, `breach_depth`), generator, viewer badges, No Layered Seals ablation, seal tests.
-- **Review fixes** (2026-11-14): see `STATUS.md` §4. 123 tests pass; ruff is clean; CI runs `pytest tests/`.
+- **Review fixes** (2026-11-14): see `STATUS.md` §4. 124 tests pass; ruff is clean; CI runs `pytest tests/`.
 
-The software is ready for data collection. **No result exists until the steps below are done.**
+The software is ready for data collection. Until the physical journeys exist, `PLACEHOLDER=1 bash reproduce.sh` runs the complete pipeline on 120 simulated placeholder journeys (watermarked, never results). **No physical result exists until the steps below are done**; the captured journeys then go to the real paths (`data/trinetra_store.sqlite`, `data/derived/`, `data/restricted/`) and `bash reproduce.sh` runs unchanged.
 
 ## Physical study (team work, in order)
 
@@ -38,6 +38,6 @@ Done (see `STATUS.md` §5 and the paper). Re-run with `python -m trinetra_link.s
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest tests/ -q        # 123 passed
+python -m pytest tests/ -q        # 124 passed
 ruff check .
 ```

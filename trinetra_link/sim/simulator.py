@@ -337,8 +337,12 @@ def _seals_for(plan: Dict[str, Any], k: int, ids: Dict[str, str]) -> Tuple[List[
     return layers, note
 
 
-def simulate_benchmark(output_dir: Path | str, cfg: Optional[SimConfig] = None) -> Dict[str, Any]:
-    """Generate a simulated benchmark: store.db, staging_log.csv, split_manifest.json, scales.json."""
+def simulate_benchmark(output_dir: Path | str, cfg: Optional[SimConfig] = None, code_prefix: str = "SIM",
+                       calibration_quotas: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
+    """Generate a simulated benchmark: store.db, staging_log.csv, split_manifest.json, scales.json.
+
+    ``calibration_quotas`` fixes the number of calibration journeys per cell (else 20 percent of each cell).
+    """
     cfg = cfg or SimConfig()
     out = Path(output_dir).resolve()
     img_dir = out / "images"
@@ -360,7 +364,7 @@ def simulate_benchmark(output_dir: Path | str, cfg: Optional[SimConfig] = None) 
     staging_rows: List[Dict[str, Any]] = []
 
     for idx, cell in enumerate(cells, start=1):
-        code = f"SIM-{cfg.seed}-{idx:05d}"
+        code = f"{code_prefix}-{cfg.seed}-{idx:05d}"
         plan = _plan_journey(code, cell, cfg, rng)
         row = _staging_row(plan)
         staging_rows.append(row)
@@ -444,7 +448,7 @@ def simulate_benchmark(output_dir: Path | str, cfg: Optional[SimConfig] = None) 
     cal, test = [], []
     for cell, codes in by_cell.items():
         rng_split.shuffle(codes)
-        n_cal = max(1, round(len(codes) * CALIBRATION_FRACTION))
+        n_cal = calibration_quotas[cell] if calibration_quotas else max(1, round(len(codes) * CALIBRATION_FRACTION))
         cal += codes[:n_cal]
         test += codes[n_cal:]
 

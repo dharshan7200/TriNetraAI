@@ -14,6 +14,26 @@ from typing import Any, Dict, List, Optional
 from trinetra_link.schema.models import Journey
 
 SELF_TEST_WATERMARK = "PIPELINE SELF-TEST ON LABEL-BUILT JOURNEYS — NOT A RESULT"
+SYNTHETIC_WATERMARK = "SYNTHETIC / PLACEHOLDER JOURNEYS — NOT A RESULT"
+SYNTHETIC_CODE_PREFIXES = ("SYN-", "SIM-", "PLACEHOLDER-")
+
+
+def manifest_is_synthetic(split_data: Dict[str, Any]) -> bool:
+    """True when a split manifest describes generated rather than captured journeys."""
+    codes = list(split_data.get("test_journey_codes", [])) + list(split_data.get("calibration_journey_codes", []))
+    return bool(split_data.get("synthetic") or split_data.get("placeholder")
+                or any(str(c).startswith(SYNTHETIC_CODE_PREFIXES) for c in codes))
+
+
+def require_real_or_allowed(split_data: Dict[str, Any], manifest_path: Any, allow_synthetic: bool) -> bool:
+    """Refuse generated journeys unless explicitly allowed; returns whether they are generated."""
+    synthetic = manifest_is_synthetic(split_data)
+    if synthetic and not allow_synthetic:
+        raise RuntimeError(
+            f"Manifest {manifest_path} describes synthetic or placeholder journeys. Pass "
+            f"--allow-synthetic-dry-run to run on them; outputs are then watermarked '{SYNTHETIC_WATERMARK}'."
+        )
+    return synthetic
 
 
 class MissingCapturedJourneysError(RuntimeError):

@@ -37,6 +37,7 @@ legacy/notes/*.txt
 data/derived/
 data/artifacts/
 data/restricted/
+data/placeholder/
 
 # Embargoed ground truth files
 research/reviewed_v2/ground_truth_ledger_60.csv

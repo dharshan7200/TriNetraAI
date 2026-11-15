@@ -57,3 +57,23 @@ def test_mass_change_never_exceeds_item_mass():
     for i in range(200):
         plan = sm._plan_journey(f"SIM-T-{i}", "customer_tamper", cfg, rng)
         assert plan["mass_change_g"] <= 0.9 * plan["item"][1] + 1e-9
+
+
+def test_generated_manifests_are_refused_without_explicit_permission(tmp_path):
+    import json
+
+    import pytest
+
+    from trinetra_link.eval.e2 import evaluate_e2
+    from trinetra_link.eval.e3 import evaluate_e3
+    from trinetra_link.eval.loading import manifest_is_synthetic
+
+    assert manifest_is_synthetic({"test_journey_codes": ["PLACEHOLDER-120-00001"]})
+    assert manifest_is_synthetic({"placeholder": True})
+    assert not manifest_is_synthetic({"test_journey_codes": ["JRN-2026-0001"]})
+
+    manifest = tmp_path / "split_manifest.json"
+    manifest.write_text(json.dumps({"placeholder": True, "test_journey_codes": ["PLACEHOLDER-1-00001"]}))
+    for fn in (evaluate_e2, evaluate_e3):
+        with pytest.raises(RuntimeError, match="allow-synthetic-dry-run"):
+            fn(split_manifest_path=manifest, output_dir=tmp_path / fn.__name__)
