@@ -1,0 +1,77 @@
+# Build output
+.gradle/
+**/build/
+**/target/
+**/dist/
+
+# IDE and local machine files
+.idea/
+.vscode/
+*.iml
+local.properties
+
+# Frontend dependencies
+**/node_modules/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+*.sqlite
+.venv/
+venv/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Archives
+*.zip
+
+# Quarantined raw notes
+legacy/notes/*.txt
+
+# Local derived and restricted data
+data/derived/
+data/artifacts/
+data/restricted/
+data/placeholder/
+
+# Embargoed ground truth files
+research/reviewed_v2/ground_truth_ledger_60.csv
+**/calibration_answer_key_restricted.md
+
+# Synthetic dry-run demo data (Phase 1 review fixtures)
+demo_data/synthetic_120/*
+!demo_data/synthetic_120/README.md
+
+# Dynamic experiment results
+results/*
+!results/.gitkeep
+
+
+
+pilot_kit/
+main_kit/
+*.egg-info/
+
+# Per-run outputs of the demo runner
+TriNetra_Demo_Inputs/*/output.json
+
+# Captured journeys contain photos and GPS locations (personal data); keep them out of git by default
+Real_Inputs/
+
+# Legacy project archives, scraper dumps, and historical experiments
+legacy/
+
+# Local agent caches
+.claude/
+
+# Binary Word documents and precompiled document PDFs (source LaTeX preserved)
+*.docx
+_project_docs/paper/*.pdf
+_project_docs/guides/*.pdf
+_project_docs/samples/*.pdf
+

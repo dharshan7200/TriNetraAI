@@ -1,0 +1,267 @@
+{
+  "journey_code": "DEMO-DRESS-0001",
+  "product": "Cotton Dress",
+  "SIMULATED": "Demo input generated for illustration. Not a real parcel.",
+  "checkpoints": [
+    {
+      "journey_code": "DEMO-DRESS-0001",
+      "cp_index": 1,
+      "checkpoint_name": "CP1 Seller dispatch (origin hub)",
+      "ts_utc": "2026-11-10T10:00:00+00:00",
+      "device_id": "DEMO_PHONE_1",
+      "operator_id": "OP_DEMO_1",
+      "weights_g": [
+        454.68,
+        454.19,
+        455.24
+      ],
+      "scale_id": "SCALE_HUB_01",
+      "scale_status": "OK",
+      "seal_qr": "BOX-BEDDAA",
+      "serial": "SNBEDDAA",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_FWD",
+          "seal_id_read": "FWD-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-BEDDAA",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP1_TOP.jpg",
+          "sha256": "7b7b13dd532ff5c156338d13497d1a0d29dfc3384e4761b17d1b2524f0b4f52e",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP1_LABEL.jpg",
+          "sha256": "2d3df9782ced7db5d848eb91bbe5ccdd3c6f6bbcc1a297683a945b426ad41e6e",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP1_SEAL.jpg",
+          "sha256": "2d66ce5cc2d2a8caf139e89f86d19b5faa5aa0da4a59c79c6ebff6cc3febfc76",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "00ed844b1677786f56ee286574b0da8308dbba95c37e5ff2c76fe0f6c46d3dcf",
+      "record_hash": "aaeb70f9a1f426310ec222873ee4a775ae3ce1f77efe91aa1411a2f78b072fb3"
+    },
+    {
+      "journey_code": "DEMO-DRESS-0001",
+      "cp_index": 2,
+      "checkpoint_name": "CP2 Delivered to customer",
+      "ts_utc": "2026-11-12T11:00:00+00:00",
+      "device_id": "DEMO_PHONE_2",
+      "operator_id": "OP_DEMO_2",
+      "weights_g": [
+        454.71,
+        453.36,
+        454.59
+      ],
+      "scale_id": "SCALE_DOOR_02",
+      "scale_status": "OK",
+      "seal_qr": "BOX-BEDDAA",
+      "serial": "SNBEDDAA",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_FWD",
+          "seal_id_read": "FWD-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-BEDDAA",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP2_TOP.jpg",
+          "sha256": "eaccb189368eda2e5dc983001d60cad35c9b680b301ee0e3477815ff9c561241",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP2_LABEL.jpg",
+          "sha256": "eef96c5079cb1db1ec77f3020c41599153ef92cc0febc05812d0f0f58ff2aceb",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP2_SEAL.jpg",
+          "sha256": "5c2315c344e9690e45957839fae4e0c11a9aa8a92946f8d7ff30cc94550393be",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "aaeb70f9a1f426310ec222873ee4a775ae3ce1f77efe91aa1411a2f78b072fb3",
+      "record_hash": "e1a90cb498c837ecc59637e73b376cd1cc6518cc5d9af1d68fdf01037564af2f"
+    },
+    {
+      "journey_code": "DEMO-DRESS-0001",
+      "cp_index": 3,
+      "checkpoint_name": "CP3 Return pickup from customer",
+      "ts_utc": "2026-11-19T12:00:00+00:00",
+      "device_id": "DEMO_PHONE_3",
+      "operator_id": "OP_DEMO_3",
+      "weights_g": [
+        453.55,
+        454.09,
+        456.24
+      ],
+      "scale_id": "SCALE_RET_03",
+      "scale_status": "OK",
+      "seal_qr": "BOX-BEDDAA",
+      "serial": "SNBEDDAA",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_RET",
+          "seal_id_read": "RET-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-BEDDAA",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP3_TOP.jpg",
+          "sha256": "b44646f4b8088c7073e078652d28a00eac2a4329b06e807c3d7332c137047690",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP3_LABEL.jpg",
+          "sha256": "dbcc2c8353dd027ed0521d059a89e275aa0d704d4f2b8e49246267450edd7503",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP3_SEAL.jpg",
+          "sha256": "8ac15718d51c3b631bc46a78a2af81defbaf96f2cdd7fbc78c80569acbc3072d",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "e1a90cb498c837ecc59637e73b376cd1cc6518cc5d9af1d68fdf01037564af2f",
+      "record_hash": "d06e12325954d0fa51a4fa6e3b34f6ea59632006af1190449e393c3da2e7edce"
+    },
+    {
+      "journey_code": "DEMO-DRESS-0001",
+      "cp_index": 4,
+      "checkpoint_name": "CP4 Warehouse intake (return hub)",
+      "ts_utc": "2026-11-21T13:00:00+00:00",
+      "device_id": "DEMO_PHONE_4",
+      "operator_id": "OP_DEMO_4",
+      "weights_g": [
+        455.37,
+        455.12,
+        454.62
+      ],
+      "scale_id": "SCALE_WH_04",
+      "scale_status": "OK",
+      "seal_qr": "BOX-BEDDAA",
+      "serial": "SNBEDDAA",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_RET",
+          "seal_id_read": "RET-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-BEDDAA",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-BEDDAA",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP4_TOP.jpg",
+          "sha256": "3f83236e55c060d8b6ab545e0c91863ba4ead69fcac610cc1caf9ba0ac8d8f12",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP4_LABEL.jpg",
+          "sha256": "b7731717bc4b43e6d5418bf1521852417e1b066c0732c01ba9067336e711ef09",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP4_SEAL.jpg",
+          "sha256": "085086cc2bbebe86ad0e1053ac4a1bb0fd085c1d4ced54a3265e070f5b0430bd",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "d06e12325954d0fa51a4fa6e3b34f6ea59632006af1190449e393c3da2e7edce",
+      "record_hash": "0697ea1dff13be81c31532dc9d082b2ebc43020ed04b25539b98fac784bc6aff"
+    }
+  ]
+}

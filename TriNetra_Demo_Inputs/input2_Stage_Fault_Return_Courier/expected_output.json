@@ -1,0 +1,4 @@
+{
+  "label": "ATTR_STAGE_REVERSE_TRANSIT",
+  "meaning": "Changed between CP3 (return pickup) and CP4 (warehouse): the return courier stage S3 is responsible, not the customer."
+}

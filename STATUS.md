@@ -1,0 +1,93 @@
+# TriNetra-Link Research Execution Status
+
+**Protocol Version:** 2.6.0 (Amended)  
+**Last Updated (UTC):** 2026-11-14  
+**Active Git Branch:** `research/trinetra-link`
+
+---
+
+## 1. Study Gates Verification
+
+| Gate | Protocol Requirement | Status | Verification Reference |
+|---|---|---|---|
+| **Gate G-1** | Protocol Amendment v2.6 committed and tagged `v2.6.0-amendment` | **PASSED** | Git tag `v2.6.0-amendment`, commit `7e4873c` |
+| **Gate G-2** | Truth-ledger commitment manifest for 120 journeys (salted SHA-256) committed with determinability rule hash | **SUPERSEDED** | Regenerate with make_staging_kit.py before staging |
+| **Gate G-3** | 10-journey pilot completed end-to-end; app, scale & SOP verified; quality floors frozen | **PENDING** | Awaiting physical pilot staging and capture sheets recorded by human operator |
+| **Gate G-4** | Scale characterisation completed ($\ge 3$ loads $\times 30$ readings) and `scales.json` committed | **PENDING** | Awaiting physical scale readings ($\ge 3$ loads $\times 30$ readings) recorded by human operator |
+
+---
+
+## 2. Component Implementation Status
+
+- [x] **Phase A: Core Method Package (`trinetra_link/`)**
+  - Pydantic v2 schemas and SQLite append-only store (`store/`).
+  - Metadata-only Quality Gate evaluating $q_k \in [0, 1]$ (`quality/`).
+  - Multimodal Reconcilers: Weight anomaly testing, Identity parity rules 1–6, Homography visual change score (`reconcile/`).
+  - Attribution Algorithm 1 (deterministic interval isolation) and Bayesian quality-exponent coalescence (`attribution/`).
+  - Model fitting CLI `trinetra fit --split calibration` (`fit.py`).
+  - **Tests:** 124 passing in `tests/`; 75% line coverage of `trinetra_link/` (2026-11-14).
+
+- [x] **Phase B: Capture Path**
+  - High-throughput FastAPI Ingest API (`ingest/api.py`).
+  - Mobile web capture interface with live camera viewfinder & SHA-256 hashing (`ingest/static/capture.html`); refuses submissions without photos, records layered seals, identifier source and glare.
+  - Native Android multipart client (`android/.../TriNetraLinkClient.kt`) — **not yet wired to the ingest API; use the web capture page for the study.**
+  - Complete Mobile Capture Standard Operating Procedure (`docs/capture_SOP.md`).
+
+- [x] **Phase C: Staging, Scale, and Truth Tools**
+  - Empirical scale characterisation and noise fitting (`scale/characterise.py`).
+  - Seeded 8-cell physical staging assignment for $N = 120$ packages (`staging/assign.py`).
+  - Append-only physical staging log with overhead video SHA-256 tracking (`staging/log.py`).
+  - Deterministic ground-truth derivation rule $\Omega^*$ (`staging/determinability.py`).
+  - Stratified 24 calibration / 96 test split manifest (`staging/split.py`).
+  - Gate G-3 pilot check verification (`staging/pilot.py`); refuses to pass without 10 captured, non-synthetic pilot journeys.
+
+- [x] **Phase D: Baselines and Experiments**
+  - Baseline B1: Terminal CP4-only rule (`baselines/b1_cp4.py`).
+  - Baseline B2: Origin CP1 + Destination CP4 endpoints rule (`baselines/b2_endpoints.py`).
+  - Baseline B3: Unlinked "detection = origin" sequential rule (`baselines/b3_unlinked.py`).
+  - Baseline B4 (LLM judge): removed on 2026-11-23 (decision D-07 in `docs/decisions.md`). The comparison uses B1, B2, B3 and B5.
+  - Baseline B5: Ported legacy V3 heuristic rules (`baselines/b5_v3_rules.py`).
+  - Experiment E1: Primary benchmark evaluation, Table III generation (CSV/LaTeX), risk-coverage curves, bootstrap 95% CIs, exact McNemar tests (`eval/e1.py`).
+  - Experiment E2: Controlled capture perturbations (drops, pixel-level blur and darkening, scale drift) (`eval/e2.py`).
+  - Experiment E3: Architectural component ablations, including No Layered Seals (`eval/e3.py`).
+  - E1–E3 load captured journeys from the store and refuse label-built journeys outside `--pipeline-self-test`.
+
+- [x] **Phase E: Viewer, Documentation, and Reproducibility**
+  - Blinded read-only research visualizer web application (`trinetra_link/viewer/`).
+  - Comprehensive physical staging Standard Operating Procedure (`docs/staging_SOP.md`).
+  - Standardized dataset documentation (`docs/datasheet.md`).
+  - One-command reproduction script (`reproduce.sh`).
+  - MIT / CC BY 4.0 licensing and Citation File Format (`CITATION.cff`).
+
+---
+
+## 3. Physical Trial Data Execution Status
+
+0 real journeys collected. Only a watermarked synthetic dry run has been executed.
+No courier network is involved; journeys will be staged by the team.
+
+
+## 4. Review fixes (2026-11-14)
+
+The November 2026 review found that several code paths could produce numbers that were not earned. All of the following are fixed and covered by tests (`tests/test_gap_fixes.py` and updated suites):
+
+- Pilot check no longer fabricates passing fixtures; `fit` refuses an empty calibration split and loads journeys from the store.
+- E1/E2/E3 run on captured journeys only; label-rebuilt journeys are allowed only as a watermarked self-test.
+- E2 blur and darkening perturb pixels; DEG ground truth applies only when the perturbed checkpoint bounds the manipulation interval; E2/E3 use the fitted θ and scales.
+- Seal layers that were not recorded are UNK, not INTACT; the No Layered Seals ablation keeps serial/IMEI/seal-QR identity checks.
+- Glare and manual identifier entry are structured fields (`glare_reported`, `identifier_source`), not free-text keywords; the synthetic generator no longer leaks the answer through the legacy seal QR.
+- Baselines B1–B3 treat missing weights as no evidence; empty subgroups report n/a; E1 reports customer misattribution per method.
+- Operational policy maps each attribution to a distinct decision code.
+- Ingest API: no default token, header-only token with constant-time compare, CORS off unless `TRINETRA_CORS_ORIGINS` is set; capture page has no pre-filled values and no mock-photo fallback.
+- Packaging (`pyproject.toml`), pinned ruff, and `pytest tests/` in CI.
+- A modality at CP k is trusted only if it is also trusted at the CP1 reference (a blurred CP1 photo can no longer anchor a visual comparison).
+- `fit` searches θ and the visual threshold with the evaluation pipeline itself (it used to re-implement the pipeline without layered seals) and derives truth only from the staging log (it used to guess truth from cell names, mapping doorstep substitution to S2). E1–E3 and `reproduce.sh` now use the fitted visual threshold.
+- New registered local visual reconciler (`--visual-method local`): ECC alignment, glare masking and block-wise SSIM. The preregistered global 1 − SSIM score stays the default until a protocol amendment adopts it.
+
+## 5. Simulation study (2026-11-14)
+
+`python -m trinetra_link.sim.run_study main` generates a 960-journey simulated benchmark with nuisance effects drawn independently of the scenario cell, fits on its calibration split and runs E1 (full and field masks) and the E3 ablations; `sweep` runs sensitivity points. All outputs are SIMULATED; they stress-test the method and do not replace the physical study.
+
+## 6. Placeholder data (2026-11-15)
+
+`data/placeholder/` (git-ignored, regenerate with `trinetra placeholder create`) holds 120 SIMULATED journeys in the real study layout, so the whole pipeline (fit, E1 full/field, E2, E3) runs end to end today via `PLACEHOLDER=1 bash reproduce.sh`. They are not data: experiments refuse them without `--allow-synthetic-dry-run` and watermark every output. The Gate G-3 pilot check deliberately still refuses them. Also fixed: E2 and E3 now use the characterised scale file in the weight test (they used the 0.35 g fallback) and, like E1, never take ground truth from the planned assignment sheet.

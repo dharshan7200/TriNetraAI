@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TriNetra-Link Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #E8EDF2;
+  --label: #FFFFFF;
+  --ink: #172033;
+  --ink-soft: #4A5568;
+  --rule: #C5CED8;
+  --tape: #F2B705;
+  --tape-edge: #C99600;
+  --fault: #B3261E;
+  --clear: #1E6B45;
+  --abstain: #2F4A9A;
+  --focus: #0B57D0;
+  --shadow: 0 1px 0 rgba(23,32,51,.06), 0 6px 18px -10px rgba(23,32,51,.25);
+  --display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --r-sm: 6px; --r-md: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121821; --label: #1B2330; --ink: #E6EBF2; --ink-soft: #A3AEBD; --rule: #2C3646;
+    --tape: #E0A800; --tape-edge: #A87E00; --fault: #F07167; --clear: #5BC28F; --abstain: #8EA6F5;
+    --focus: #8AB4F8; --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 22px -12px rgba(0,0,0,.8); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121821; --label: #1B2330; --ink: #E6EBF2; --ink-soft: #A3AEBD; --rule: #2C3646;
+  --tape: #E0A800; --tape-edge: #A87E00; --fault: #F07167; --clear: #5BC28F; --abstain: #8EA6F5;
+  --focus: #8AB4F8; --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 22px -12px rgba(0,0,0,.8); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper); color: var(--ink); font: 400 16px/1.5 var(--body);
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+svg.i { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- shell ---------- */
+.top { display: flex; align-items: baseline; gap: 16px; padding: 18px 28px 14px; border-bottom: 1px solid var(--rule); }
+.mark { font: 800 30px/1 var(--display); letter-spacing: .5px; margin: 0; }
+.top .tag { margin: 0; color: var(--ink-soft); }
+.top .theme { margin-left: auto; min-height: 44px; min-width: 44px; border: 1px solid var(--rule); background: var(--label); border-radius: var(--r-sm); cursor: pointer; display: inline-grid; place-items: center; }
+.shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); min-width: 0; min-height: calc(100vh - 64px); }
+
+/* ---------- rail ---------- */
+.rail { border-right: 1px solid var(--rule); padding: 18px 14px 28px; min-width: 0; }
+.rail h2 { font: 600 15px/1.3 var(--body); color: var(--ink-soft); margin: 18px 10px 8px; }
+.rail h2:first-child { margin-top: 0; }
+.rail ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.jbtn {
+  width: 100%; text-align: left; border: 1px solid transparent; background: none; border-radius: var(--r-sm);
+  padding: 9px 10px; min-height: 48px; cursor: pointer; display: grid; gap: 1px;
+}
+.jbtn:hover { background: var(--label); border-color: var(--rule); }
+.jbtn[aria-current="true"] { background: var(--label); border-color: var(--ink); box-shadow: var(--shadow); }
+.jbtn b { font-weight: 600; }
+.jbtn span { font-size: 13.5px; color: var(--ink-soft); }
+.empty { margin: 4px 10px; font-size: 14px; color: var(--ink-soft); }
+
+/* ---------- main ---------- */
+main { padding: 26px 32px 60px; min-width: 0; }
+.jhead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; }
+.jhead h1 { font: 800 clamp(34px, 4vw, 52px)/0.95 var(--display); margin: 0; letter-spacing: .3px; }
+.jmeta { color: var(--ink-soft); font-size: 15px; margin-top: 6px; }
+.badge { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); background: var(--label); margin-left: 6px; vertical-align: 2px; }
+.go {
+  margin-left: auto; min-height: 48px; padding: 0 22px; border-radius: var(--r-sm); border: 2px solid var(--ink);
+  background: var(--ink); color: var(--label); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
+  transition: transform .12s ease, background-color .12s ease;
+}
+.go:hover { background: transparent; color: var(--ink); }
+.go:active { transform: translateY(1px); }
+.go[disabled] { opacity: .45; cursor: progress; }
+.actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 10px; }
+.actions .go { margin-left: 0; }
+.report { min-height: 48px; padding: 0 18px; border-radius: var(--r-sm); border: 2px solid var(--ink); color: var(--ink);
+  background: var(--label); font-weight: 700; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.report:hover { background: var(--paper); }
+.report[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.evid { display: inline-flex; align-items: flex-start; gap: 6px; }
+.evid.intact { color: var(--clear); } .evid.broken { color: var(--fault); font-weight: 600; } .evid.unsealed { color: var(--ink-soft); }
+.alert { border-left: 4px solid var(--fault); background: color-mix(in srgb, var(--fault) 10%, var(--label)); padding: 10px 14px; border-radius: 0 var(--r-sm) var(--r-sm) 0; margin: 0 0 14px; }
+.fp { font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
+
+/* ---------- route strip ---------- */
+.route { position: relative; margin: 30px 0 8px; padding: 10px 0 6px; }
+.route ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: relative; }
+.tape {
+  position: absolute; left: 12.5%; right: 12.5%; top: 38px; height: 14px; border-radius: 2px;
+  background: repeating-linear-gradient(90deg, var(--tape) 0 22px, color-mix(in srgb, var(--tape) 82%, #fff) 22px 24px);
+  border-top: 1px solid var(--tape-edge); border-bottom: 1px solid var(--tape-edge);
+}
+.seg { position: absolute; top: 33px; height: 24px; display: grid; place-items: center; pointer-events: none; }
+.seg span { font-size: 12.5px; font-weight: 600; background: var(--paper); padding: 0 6px; transform: translateY(26px); color: var(--ink-soft); white-space: nowrap; }
+.seg::before { content: ""; position: absolute; inset: 5px 0; border-radius: 2px; opacity: 0; transition: opacity .3s ease; }
+.seg.fault::before { opacity: 1; background: repeating-linear-gradient(-45deg, var(--fault) 0 6px, color-mix(in srgb, var(--fault) 70%, transparent) 6px 12px); }
+.seg.fault span { color: var(--fault); }
+.seg.clear::before { opacity: 1; background: var(--clear); height: 4px; inset: auto 0 10px; }
+.seg.abstain::before { opacity: 1; background: none; border-top: 3px dashed var(--abstain); border-bottom: 3px dashed var(--abstain); }
+.seg.abstain span { color: var(--abstain); }
+.station { display: grid; justify-items: center; text-align: center; gap: 2px; }
+.node {
+  position: relative; width: 76px; height: 76px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: conic-gradient(var(--ring, var(--rule)) calc(var(--q, 0) * 1turn), var(--rule) 0);
+  display: grid; place-items: center; transition: transform .15s ease;
+}
+.node:hover { transform: scale(1.04); }
+.node::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--label); box-shadow: var(--shadow); }
+.node .cpn { position: relative; z-index: 1; font: 800 24px/1 var(--display); }
+.node .st { position: absolute; z-index: 2; right: -4px; bottom: -2px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--label); border: 2px solid var(--paper); opacity: 0; transform: scale(.6); transition: opacity .2s ease, transform .2s ease; }
+.node .st svg { width: 16px; height: 16px; stroke-width: 2.4; }
+.station.revealed .st { opacity: 1; transform: scale(1); }
+.station[data-state="INTACT"] { --ring: var(--clear); }
+.station[data-state="ANOM"] { --ring: var(--fault); }
+.station[data-state="UNK"], .station[data-state="UNTRUSTED"] { --ring: var(--abstain); }
+.station[data-state="REFERENCE"] { --ring: var(--ink); }
+.station:not(.revealed) .node { --ring: var(--rule); }
+.station[data-state="INTACT"] .st { color: var(--clear); }
+.station[data-state="ANOM"] .st { color: var(--fault); }
+.station[data-state="UNK"] .st, .station[data-state="UNTRUSTED"] .st { color: var(--abstain); }
+.station[data-state="REFERENCE"] .st { color: var(--ink); }
+.station.sel .node { outline: 3px solid var(--ink); outline-offset: 4px; }
+.place { font-weight: 600; margin-top: 8px; }
+.wt { font-size: 15px; color: var(--ink-soft); }
+.trust { font-size: 13px; color: var(--ink-soft); min-height: 20px; }
+.parcel {
+  position: absolute; left: 0; top: 0; width: 34px; height: 34px; z-index: 3; color: var(--ink);
+  background: var(--tape); border: 2px solid var(--ink); border-radius: 4px; display: grid; place-items: center;
+  opacity: 0; transition: transform .38s cubic-bezier(.4,.1,.2,1), opacity .2s ease; pointer-events: none;
+}
+.parcel svg { width: 18px; height: 18px; }
+
+/* ---------- docket ---------- */
+.docket {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px;
+  background: var(--label); border-radius: var(--r-md); padding: 30px 30px 26px; margin-top: 34px; box-shadow: var(--shadow);
+}
+.docket::before { /* tear-off perforation of a shipping label */
+  content: ""; position: absolute; left: 14px; right: 14px; top: -5px; height: 10px;
+  background: radial-gradient(circle at 5px 5px, var(--paper) 3.5px, transparent 4px) 0 0 / 14px 10px repeat-x;
+}
+.stamp {
+  display: inline-block; font: 800 30px/1 var(--display); letter-spacing: 2px; padding: 8px 16px 6px;
+  border: 4px double currentColor; border-radius: 6px; transform: rotate(-5deg); color: var(--ink-soft);
+  -webkit-mask-image: radial-gradient(circle at 30% 40%, #000 60%, rgba(0,0,0,.82) 61%), repeating-radial-gradient(circle at 70% 60%, #000 0 2px, rgba(0,0,0,.88) 2px 3px);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+.stamp.clear { color: var(--clear); } .stamp.fault { color: var(--fault); } .stamp.abstain { color: var(--abstain); }
+.stamp.drop { animation: stamp .42s cubic-bezier(.2,.9,.3,1.25) both; }
+@keyframes stamp { 0% { transform: rotate(-12deg) scale(1.9); opacity: 0; } 70% { opacity: 1; } 100% { transform: rotate(-5deg) scale(1); opacity: 1; } }
+.vtitle { font: 800 clamp(30px, 3.2vw, 44px)/1 var(--display); margin: 18px 0 8px; }
+.vlead { margin: 0 0 14px; max-width: 60ch; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 15px; }
+.facts dt { color: var(--ink-soft); }
+.facts dd { margin: 0; max-width: 62ch; overflow-wrap: anywhere; }
+.match { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.match.ok { color: var(--clear); } .match.no { color: var(--fault); }
+.wait { color: var(--ink-soft); max-width: 46ch; }
+.wait b { color: var(--ink); }
+.chart h3, .detail h3 { font: 600 15px/1.3 var(--body); margin: 0 0 8px; color: var(--ink-soft); }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .axis { stroke: var(--rule); } .chart .band { fill: color-mix(in srgb, var(--clear) 16%, transparent); }
+.chart .line { stroke: var(--ink); stroke-width: 2; fill: none; }
+.chart text { fill: var(--ink-soft); font: 500 12px var(--body); }
+.chart .pt { stroke: var(--label); stroke-width: 2; }
+.chart figcaption { font-size: 13.5px; color: var(--ink-soft); margin-top: 6px; }
+
+/* ---------- checkpoint detail ---------- */
+.detail { margin-top: 34px; }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--rule); margin-bottom: 18px; overflow-x: auto; }
+.tab { border: 0; background: none; padding: 10px 14px; min-height: 44px; cursor: pointer; font-weight: 600; color: var(--ink-soft); border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.panel { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 28px; }
+.faces { display: grid; gap: 16px; }
+.face { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.face.single { grid-template-columns: 1fr; max-width: 420px; }
+.shot { margin: 0; }
+.shot button { padding: 0; border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--label); cursor: zoom-in; display: block; width: 100%; overflow: hidden; }
+.shot img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.shot figcaption { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.shot .where { flex-basis: 100%; font-size: 12.5px; }
+.shot .where a { color: var(--ink); }
+.prov.flagged { color: var(--fault); font-weight: 600; } .prov.ok { color: var(--clear); } .prov.not_recorded { color: var(--ink-soft); }
+.chg { font-weight: 600; }
+.chg.hi { color: var(--fault); } .chg.lo { color: var(--clear); }
+.side { background: var(--label); border-radius: var(--r-md); padding: 18px 20px; box-shadow: var(--shadow); display: grid; gap: 16px; align-content: start; }
+.ev { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ev li { display: flex; align-items: center; gap: 10px; }
+.ev .lbl { min-width: 70px; color: var(--ink-soft); }
+.ev .val { font-weight: 600; }
+.ev .val.INTACT { color: var(--clear); } .ev .val.ANOM { color: var(--fault); } .ev .val.UNK { color: var(--abstain); }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 15px; }
+.kv dt { color: var(--ink-soft); } .kv dd { margin: 0; overflow-wrap: anywhere; }
+.notes { margin: 0; padding-left: 18px; font-size: 14.5px; color: var(--ink-soft); }
+.notes li { margin: 2px 0; }
+.foot { margin-top: 36px; font-size: 13.5px; color: var(--ink-soft); max-width: 80ch; }
+.err { color: var(--fault); font-weight: 600; }
+
+dialog { border: 0; padding: 0; border-radius: var(--r-md); background: var(--label); color: var(--ink); max-width: min(92vw, 960px); box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+dialog::backdrop { background: rgba(10, 15, 25, .72); }
+dialog img { display: block; max-width: 100%; max-height: 80vh; }
+dialog .bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 8px 8px 16px; gap: 12px; }
+dialog .x { min-width: 44px; min-height: 44px; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+
+@media (max-width: 980px) {
+  .docket, .panel { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .top { padding: 14px 16px 12px; flex-wrap: wrap; }
+  .top .tag { order: 3; width: 100%; font-size: 15px; }
+  .rail ul .empty { white-space: normal; grid-column: 1 / -1; }
+  .shell { grid-template-columns: 1fr; }
+  .rail { border-right: 0; border-bottom: 1px solid var(--rule); padding: 12px 16px; }
+  .rail ul { grid-auto-flow: column; grid-auto-columns: minmax(160px, 1fr); overflow-x: auto; padding-bottom: 6px; }
+  .rail h2 { margin: 10px 0 6px; }
+  main { padding: 20px 16px 48px; }
+  .actions { width: 100%; margin-left: 0; }
+  .go, .report { flex: 1 1 100%; justify-content: center; }
+  .route ol { grid-template-columns: 1fr; gap: 26px; }
+  .tape { left: 37px; right: auto; top: 48px; bottom: 60px; width: 14px; height: auto;
+    background: repeating-linear-gradient(180deg, var(--tape) 0 22px, color-mix(in srgb, var(--tape) 82%, #fff) 22px 24px);
+    border: 0; border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge); }
+  .station { grid-template-columns: 76px 1fr; justify-items: start; text-align: left; column-gap: 16px; }
+  .station .node { grid-row: span 4; }
+  .place { margin-top: 4px; }
+  .seg { display: none; }
+  .docket { padding: 24px 18px 20px; }
+  .face { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-q" viewBox="0 0 24 24"><path d="M9.2 9a3 3 0 1 1 4.3 2.7c-.9.4-1.5 1.1-1.5 2.1V15"/><path d="M12 18.5h.01"/></symbol>
+  <symbol id="i-ref" viewBox="0 0 24 24"><path d="M12 3v18M5 8l7-5 7 5"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9.5 14.5L12 17l2.5-2.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+</svg>
+
+<header class="top">
+  <p class="mark">TriNetra-Link</p>
+  <p class="tag">Open a parcel journey to see where it changed, or why the evidence can't say.</p>
+  <button class="theme" id="theme" type="button" aria-label="Switch light or dark theme"><svg class="i"><use href="#i-moon"/></svg></button>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Journeys">
+    <h2 id="g-demo">Demo journeys (simulated)</h2>
+    <ul id="list-demo" aria-labelledby="g-demo"></ul>
+    <h2 id="g-real">Your captures</h2>
+    <ul id="list-real" aria-labelledby="g-real"></ul>
+  </nav>
+
+  <main id="main">
+    <div class="jhead">
+      <div>
+        <h1 id="title">Choose a journey</h1>
+        <div class="jmeta" id="meta">Pick a demo journey or one of your captures from the list.</div>
+      </div>
+      <div class="actions">
+        <a class="report" id="report" href="#" aria-disabled="true" download><svg class="i" aria-hidden="true"><use href="#i-doc"/></svg><span>Download report (PDF)</span></a>
+        <button class="go" id="go" type="button" disabled><svg class="i"><use href="#i-play"/></svg><span>Analyze journey</span></button>
+      </div>
+    </div>
+
+    <section class="route" aria-label="Custody route" id="route">
+      <div class="tape" aria-hidden="true"></div>
+      <div class="seg" id="seg1" style="left:12.5%;width:25%"><span>S1 Delivery courier</span></div>
+      <div class="seg" id="seg2" style="left:37.5%;width:25%"><span>S2 Customer</span></div>
+      <div class="seg" id="seg3" style="left:62.5%;width:25%"><span>S3 Return courier</span></div>
+      <ol id="stations"></ol>
+      <div class="parcel" id="parcel" aria-hidden="true"><svg class="i"><use href="#i-box"/></svg></div>
+    </section>
+
+    <section class="docket" aria-live="polite" id="docket">
+      <div id="verdict"><p class="wait">The verdict appears here after you press <b>Analyze journey</b>.</p></div>
+      <figure class="chart" id="chart" style="margin:0"></figure>
+    </section>
+
+    <section class="detail" aria-label="Checkpoint evidence">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div id="panel" class="panel" role="tabpanel"></div>
+    </section>
+
+    <p class="foot" id="foot">Settings from the simulation study: a checkpoint is trusted when its quality q is at least 0.70; a photo counts as changed when a 24-pixel block differs from CP1 by more than 0.06; a weight counts as changed beyond 3 standard deviations of the scales' noise.</p>
+  </main>
+</div>
+
+<dialog id="zoom" aria-label="Photo">
+  <div class="bar"><span id="zoomcap"></span><button class="x" type="button" id="zoomclose" aria-label="Close photo"><svg class="i"><use href="#i-close"/></svg></button></div>
+  <img id="zoomimg" alt="">
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const STATE_TEXT = { REFERENCE: "Reference", INTACT: "Unchanged", ANOM: "Changed", UNK: "Unclear" };
+const STATE_ICON = { REFERENCE: "i-ref", INTACT: "i-check", ANOM: "i-x", UNK: "i-q", UNTRUSTED: "i-q" };
+const EV_TEXT = { INTACT: "Same as CP1", ANOM: "Changed", UNK: "Not usable" };
+let journeys = [], current = null, data = null, revealed = false, selected = 1;
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const icon = (id) => `<svg class="i" aria-hidden="true"><use href="#${id}"/></svg>`;
+const g = (n) => (n == null ? "—" : `${Number(n).toFixed(1)} g`);
+
+// theme toggle (remembered per browser)
+try { const t = localStorage.getItem("tn-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+$("#theme").addEventListener("click", () => {
+  const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("tn-theme", document.documentElement.dataset.theme); } catch (e) {}
+});
+
+async function loadList() {
+  try {
+    journeys = await (await fetch("/api/journeys")).json();
+  } catch (e) { journeys = []; }
+  for (const group of ["demo", "real"]) {
+    const ul = $("#list-" + group);
+    const items = journeys.filter((j) => j.group === group);
+    ul.innerHTML = items.length ? items.map((j) => `
+      <li><button class="jbtn" type="button" data-id="${esc(j.id)}">
+        <b>${esc(j.product || j.code)}</b><span>${esc(j.code)}${j.checkpoints < 4 ? ` (${j.checkpoints} of 4 checkpoints)` : ""}</span>
+      </button></li>`).join("")
+      : `<li class="empty">${group === "real" ? "No captures yet. Submit a checkpoint on the capture page and it appears here." : "No demo journeys found."}</li>`;
+  }
+  document.querySelectorAll(".jbtn").forEach((b) => b.addEventListener("click", () => open(b.dataset.id)));
+  const first = new URLSearchParams(location.search).get("j") || (journeys[0] && journeys[0].id);
+  if (first) open(first);
+}
+
+async function open(id) {
+  current = id; revealed = false; selected = 1;
+  document.querySelectorAll(".jbtn").forEach((b) => b.setAttribute("aria-current", b.dataset.id === id ? "true" : "false"));
+  const j = journeys.find((x) => x.id === id);
+  $("#title").textContent = j ? (j.product || j.code) : id;
+  $("#meta").innerHTML = j ? `${esc(j.code)}${j.simulated ? '<span class="badge">Simulated demo input</span>' : '<span class="badge">Your capture</span>'}` : "";
+  $("#go").disabled = true; $("#go span").textContent = "Loading…";
+  $("#report").setAttribute("aria-disabled", "true"); $("#report").href = "#";
+  $("#verdict").innerHTML = `<p class="wait">Reading the four checkpoints…</p>`; $("#chart").innerHTML = "";
+  segs(null);
+  try {
+    const r = await fetch("/api/analyze/" + encodeURIComponent(id));
+    data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+  } catch (e) {
+    data = null;
+    $("#verdict").innerHTML = `<p class="err">This journey could not be analysed. ${esc(e.message)}</p><p class="wait">Check that the folder has a journey.json with four checkpoints and its images folder.</p>`;
+    $("#stations").innerHTML = ""; $("#tabs").innerHTML = ""; $("#panel").innerHTML = "";
+    $("#go span").textContent = "Analyze journey"; return;
+  }
+  drawStations(); drawTabs(); drawPanel();
+  $("#verdict").innerHTML = `<p class="wait">Photos, weights and seals for all ${data.checkpoints.length} checkpoints are loaded below. Press <b>Analyze journey</b> to run the pipeline.</p>`;
+  $("#go").disabled = false; $("#go span").textContent = "Analyze journey";
+}
+
+function stationState(c) {
+  if (c.k === 1) return c.trusted ? "REFERENCE" : "UNTRUSTED";
+  if (!c.trusted) return "UNTRUSTED";
+  return c.glare_reported && c.state !== "ANOM" ? "UNK" : c.state;
+}
+
+function drawStations() {
+  $("#stations").innerHTML = data.checkpoints.map((c) => `
+    <li class="station${revealed ? " revealed" : ""}${c.k === selected ? " sel" : ""}" data-k="${c.k}" data-state="${stationState(c)}" style="--q:${revealed ? c.q : 0}">
+      <button class="node" type="button" aria-label="CP${c.k} ${esc(c.place)}: show evidence">
+        <span class="cpn">CP${c.k}</span>
+        <span class="st" aria-hidden="true">${icon(STATE_ICON[stationState(c)] || "i-q")}</span>
+      </button>
+      <div class="place">${esc(c.place)}</div>
+      <div class="wt">${c.median != null ? g(c.median) : (c.scale_status === "ERROR" ? "Scale error" : "No weight")}</div>
+      <div class="trust">${revealed ? trustText(c) : ""}</div>
+    </li>`).join("");
+  document.querySelectorAll(".station .node").forEach((n) => n.addEventListener("click", () => select(+n.closest(".station").dataset.k)));
+}
+function trustText(c) {
+  if (c.k > 1 && data.checkpoints[0] && !data.checkpoints[0].trusted) return "No trusted reference";
+  const st = stationState(c);
+  const label = c.k > 1 && c.glare_reported && st !== "ANOM" ? "Glare on photos" : (st === "UNTRUSTED" ? "Not used" : STATE_TEXT[st]);
+  return `${label}, trust ${c.q.toFixed(2)}`;
+}
+
+function segs(v) {
+  [1, 2, 3].forEach((s) => { $("#seg" + s).className = "seg"; });
+  if (!v) return;
+  if (v.kind === "clear") [1, 2, 3].forEach((s) => $("#seg" + s).classList.add("clear"));
+  else if (v.kind === "fault" && v.stage) $("#seg" + v.stage).classList.add("fault");
+  else if (v.kind === "abstain") {
+    let iv = v.interval;
+    const glare = data.checkpoints.filter((c) => c.k > 1 && c.glare_reported).map((c) => c.k);
+    if (!iv && glare.length) iv = [Math.min(...glare) - 1, Math.max(...glare)];
+    if (iv) for (let s = iv[0]; s < iv[1]; s++) if (s >= 1) $("#seg" + s).classList.add("abstain");
+  }
+}
+
+async function analyze() {
+  if (!data) return;
+  $("#go").disabled = true;
+  revealed = false; drawStations(); segs(null);
+  $("#verdict").innerHTML = `<p class="wait">Checking each checkpoint against CP1…</p>`;
+  const parcel = $("#parcel"), route = $("#route").getBoundingClientRect();
+  for (const c of data.checkpoints) {
+    const li = document.querySelector(`.station[data-k="${c.k}"]`);
+    const node = li.querySelector(".node").getBoundingClientRect();
+    parcel.style.transform = `translate(${node.left - route.left + node.width / 2 - 17}px, ${node.top - route.top - 22}px)`;
+    parcel.style.opacity = "1";
+    if (!reduce) await wait(c.k === 1 ? 160 : 420);
+    li.classList.add("revealed"); li.style.setProperty("--q", c.q);
+    li.querySelector(".trust").textContent = trustText(c);
+  }
+  if (!reduce) await wait(260);
+  parcel.style.opacity = "0";
+  revealed = true; segs(data.verdict); drawVerdict(); drawChart(); drawPanel();
+  $("#go").disabled = false; $("#go span").textContent = "Analyze again";
+  $("#report").href = "/api/report/" + encodeURIComponent(current); $("#report").setAttribute("aria-disabled", "false");
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function drawVerdict() {
+  const v = data.verdict;
+  const expected = data.expected ? `<dt>Expected</dt><dd><span class="match ${data.matches_expected ? "ok" : "no"}">${icon(data.matches_expected ? "i-check" : "i-x")}${data.matches_expected ? "Matches the expected output" : "Differs from the expected output (" + esc(data.expected) + ")"}</span></dd>` : "";
+  const ig = data.integrity || {};
+  const igIcon = ig.status === "intact" ? "i-lock" : (ig.status === "broken" ? "i-warn" : "i-q");
+  const alert = ig.status === "broken" ? `<p class="alert"><b>Evidence was changed after capture.</b> Do not rely on this verdict until the records are explained. ${esc(ig.problems.join("; "))}</p>` : "";
+  $("#verdict").innerHTML = alert + `
+    <span class="stamp ${v.kind}${reduce ? "" : " drop"}">${esc(v.stamp)}</span>
+    <h2 class="vtitle">${esc(v.title)}</h2>
+    <p class="vlead">${esc(v.lead)}${v.stage_name ? ` Responsible stage: <b>${esc(v.stage_name)}</b>.` : ""}</p>
+    <dl class="facts">
+      <dt>What to do</dt><dd>${esc(v.decision)}</dd>
+      <dt>Why</dt><dd>${esc(v.reason)}</dd>
+      ${v.breach ? `<dt>Seals</dt><dd>${esc(v.breach)}</dd>` : ""}
+      <dt>Output</dt><dd>${esc(v.label)}</dd>
+      ${expected}
+      <dt>Evidence</dt><dd><span class="evid ${esc(ig.status)}">${icon(igIcon)}${esc(ig.summary)}</span></dd>
+      <dt>Time and place</dt><dd><span class="prov ${esc((data.provenance || {}).status)}">${esc((data.provenance || {}).summary || "")}</span>${(data.provenance || {}).moves && data.provenance.moves.length ? `<br><span class="fp">${data.provenance.moves.map((m) => `CP${m.from} to CP${m.to}: ${m.km} km`).join("; ")}</span>` : ""}</dd>
+    </dl>`;
+}
+
+function drawChart() {
+  const cps = data.checkpoints, W = 360, H = 190, L = 44, R = 14, T = 16, B = 34;
+  const pts = cps.filter((c) => c.median != null);
+  if (!pts.length) { $("#chart").innerHTML = `<h3>Weight at each checkpoint</h3><p class="wait">No weight readings were usable.</p>`; return; }
+  const bounds = cps.filter((c) => c.weight_test).map((c) => c.weight_test.bound_g);
+  const ref = cps[0].median, bound = bounds.length ? Math.max(...bounds) : null, bmin = bounds.length ? Math.min(...bounds) : null;
+  const vals = pts.map((c) => c.median).concat(ref != null && bound ? [ref - bound, ref + bound] : []);
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = Math.max((hi - lo) * 0.15, 3); lo -= pad; hi += pad;
+  const x = (k) => L + (k - 1) * (W - L - R) / 3, y = (v) => T + (hi - v) * (H - T - B) / (hi - lo);
+  const band = ref != null && bound ? `<rect class="band" x="${L}" y="${y(ref + bound)}" width="${W - L - R}" height="${y(ref - bound) - y(ref + bound)}"/>` : "";
+  const color = (c) => c.k === 1 ? "var(--ink)" : (c.weight_test && c.weight_test.changed ? "var(--fault)" : "var(--clear)");
+  const path = cps.map((c, i) => c.median == null ? "" : `${i && cps[i - 1].median != null ? "L" : "M"}${x(c.k)},${y(c.median)}`).join("");
+  const gaps = cps.filter((c) => c.median == null);
+  $("#chart").innerHTML = `<h3>Weight at each checkpoint</h3>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight at each checkpoint: ${pts.map((c) => `CP${c.k} ${g(c.median)}`).join(", ")}">
+      ${band}
+      <line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>
+      ${[lo + pad, hi - pad].map((v) => `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`).join("")}
+      ${cps.map((c) => `<text x="${x(c.k)}" y="${H - 12}" text-anchor="middle">CP${c.k}</text>`).join("")}
+      <path class="line" d="${path}"/>
+      ${pts.map((c) => `<circle class="pt" cx="${x(c.k)}" cy="${y(c.median)}" r="6" fill="${color(c)}"/>`).join("")}
+      ${gaps.map((c) => `<line class="axis" x1="${x(c.k)}" x2="${x(c.k)}" y1="${T}" y2="${H - B}" stroke-dasharray="3 4"/><text x="${x(c.k)}" y="${H - B - 6}" text-anchor="middle">no reading</text>`).join("")}
+    </svg>
+    <figcaption>${bound ? `Shaded band: CP1 weight ± ${bmin.toFixed(1) === bound.toFixed(1) ? bound.toFixed(1) : bmin.toFixed(1) + " to " + bound.toFixed(1)} g, the change the scales can't tell from noise${bmin.toFixed(1) === bound.toFixed(1) ? "" : " (the limit depends on which scale weighed the parcel)"}. Grams, median of three readings.` : "Grams, median of three readings."}</figcaption>`;
+}
+
+function drawTabs() {
+  $("#tabs").innerHTML = data.checkpoints.map((c) => `<button class="tab" role="tab" type="button" id="tab${c.k}" aria-selected="${c.k === selected}" data-k="${c.k}">CP${c.k} ${esc(c.place)}</button>`).join("");
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => select(+t.dataset.k)));
+  $("#tabs").addEventListener("keydown", (e) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+    const n = data.checkpoints.length, k = ((selected - 1 + (e.key === "ArrowRight" ? 1 : n - 1)) % n) + 1;
+    select(k); $("#tab" + k).focus();
+  });
+}
+function select(k) {
+  selected = k;
+  document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", +t.dataset.k === k));
+  document.querySelectorAll(".station").forEach((s) => s.classList.toggle("sel", +s.dataset.k === k));
+  drawPanel();
+}
+
+function drawPanel() {
+  const c = data.checkpoints.find((x) => x.k === selected); if (!c) return;
+  $("#panel").setAttribute("aria-labelledby", "tab" + c.k);
+  const faces = c.photos.map((p) => {
+    const chg = revealed && p.change != null ? `<span class="chg ${p.change > data.settings.gamma ? "hi" : "lo"}">change ${p.change.toFixed(3)}</span>` : "";
+    const where = (ph) => `<span class="where">${esc(ph.time_text)}; ${esc(ph.place_text)}${ph.lat != null ? ` <a href="https://www.openstreetmap.org/?mlat=${ph.lat}&mlon=${ph.lon}#map=18/${ph.lat}/${ph.lon}" target="_blank" rel="noopener">Open map</a>` : ""}</span>`;
+    const shot = (url, cap, extra, ph) => `<figure class="shot"><button type="button" data-src="${esc(url)}" data-cap="${esc(cap)}" aria-label="Enlarge ${esc(cap)}"><img src="${esc(url)}" alt="${esc(cap)}" loading="lazy"></button><figcaption><span>${esc(cap)}</span>${extra || ""}${ph ? where(ph) : ""}</figcaption></figure>`;
+    const ref = p.ref_url ? (data.checkpoints[0].photos.find((x) => x.side === p.side) || null) : null;
+    return p.ref_url
+      ? `<div class="face">${shot(p.ref_stamped_url, `${p.side} at CP1`, "", ref)}${shot(p.stamped_url, `${p.side} at CP${c.k}`, chg, p)}</div>`
+      : `<div class="face single">${shot(p.stamped_url, `${p.side} at CP${c.k}`, "", p)}</div>`;
+  }).join("") || `<p class="wait">No photos were recorded at this checkpoint.</p>`;
+  const ev = revealed && c.k > 1 ? `<div><h3>Compared with CP1</h3><ul class="ev">
+      ${["weight", "seal", "photo"].map((m) => `<li><span class="lbl">${{ weight: "Weight", seal: "Seals & IDs", photo: "Photos" }[m]}</span><span class="val ${c.evidence[m] || "UNK"}">${EV_TEXT[c.evidence[m] || "UNK"]}</span></li>`).join("")}
+    </ul>${c.weight_test ? `<p class="wait" style="margin:8px 0 0">Weight differs from CP1 by ${c.weight_test.delta_g.toFixed(1)} g; the limit is ${c.weight_test.bound_g.toFixed(1)} g.</p>` : ""}</div>` : "";
+  const seals = c.seals.length ? c.seals.map((s) => `<dt>${esc({ L1_FWD: "Outer flyer", L1_RET: "Return flyer", L2_BOX: "Box sticker", L3_ITEM: "Item tag" }[s.layer] || s.layer)}</dt><dd>${esc(s.seal_id_read || "unreadable")}, ${esc(s.state.toLowerCase())}</dd>`).join("") : "<dt>Seals</dt><dd>none recorded</dd>";
+  const notes = c.quality_notes.length ? `<div><h3>Quality notes</h3><ul class="notes">${c.quality_notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul></div>` : "";
+  $("#panel").innerHTML = `
+    <div class="faces">${faces}</div>
+    <aside class="side">
+      ${ev}
+      <div><h3>Readings</h3><dl class="kv">
+        <dt>Weights</dt><dd>${c.weights.length ? c.weights.map((w) => w.toFixed(2)).join(", ") + " g" : "none (scale " + esc(c.scale_status) + ")"}</dd>
+        <dt>Scale</dt><dd>${esc(c.scale_id)}, ${esc(c.scale_status)}</dd>
+        <dt>Serial</dt><dd>${esc(c.serial || "—")}</dd>
+        ${c.imei ? `<dt>IMEI</dt><dd>${esc(c.imei)}</dd>` : ""}
+        ${seals}
+        <dt>Glare</dt><dd>${c.glare_reported ? "reported by operator" : "not reported"}</dd>
+        ${c.received_at ? `<dt>Uploaded</dt><dd>${esc(c.received_at.replace("T", " ").slice(0, 19))} UTC (server clock)</dd>` : ""}
+        ${c.note ? `<dt>Note</dt><dd>${esc(c.note)}</dd>` : ""}
+      </dl></div>
+      ${c.record_hash ? `<div><h3>Evidence fingerprint</h3><p class="fp">${esc(c.record_hash)}</p>${(c.integrity_issues || []).length ? `<p class="err" style="margin:6px 0 0">${esc(c.integrity_issues.join("; "))}</p>` : `<p class="fp" style="margin:6px 0 0">Matches what was captured and links to ${c.k === 1 ? "the journey start" : "CP" + (c.k - 1)}.</p>`}</div>` : ""}
+      ${revealed ? notes : ""}
+    </aside>`;
+  $("#panel").querySelectorAll(".shot button").forEach((b) => b.addEventListener("click", () => {
+    $("#zoomimg").src = b.dataset.src; $("#zoomimg").alt = b.dataset.cap; $("#zoomcap").textContent = b.dataset.cap; $("#zoom").showModal();
+  }));
+}
+
+$("#go").addEventListener("click", analyze);
+$("#zoomclose").addEventListener("click", () => $("#zoom").close());
+$("#zoom").addEventListener("click", (e) => { if (e.target.id === "zoom") $("#zoom").close(); });
+addEventListener("resize", () => { $("#parcel").style.opacity = "0"; });
+loadList();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+{
+  "description": "Reference to a captured photographic evidence asset.",
+  "properties": {
+    "side": {
+      "description": "Surface identifier e.g. front, back, top, seal",
+      "title": "Side",
+      "type": "string"
+    },
+    "path": {
+      "description": "Repository-relative or media storage path",
+      "title": "Path",
+      "type": "string"
+    },
+    "sha256": {
+      "description": "SHA-256 digest of the image bytes",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "w": {
+      "description": "Image pixel width",
+      "minimum": 1,
+      "title": "W",
+      "type": "integer"
+    },
+    "h": {
+      "description": "Image pixel height",
+      "minimum": 1,
+      "title": "H",
+      "type": "integer"
+    },
+    "exposure": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "EXIF exposure time in seconds if available",
+      "title": "Exposure"
+    },
+    "captured_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Device clock when the photo was taken (ISO 8601 with UTC offset)",
+      "title": "Captured At"
+    },
+    "lat": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Latitude of the device when the photo was taken (WGS84)",
+      "title": "Lat"
+    },
+    "lon": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Longitude of the device when the photo was taken (WGS84)",
+      "title": "Lon"
+    },
+    "geo_accuracy_m": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reported accuracy radius of the location, metres",
+      "title": "Geo Accuracy M"
+    }
+  },
+  "required": [
+    "side",
+    "path",
+    "sha256",
+    "w",
+    "h"
+  ],
+  "title": "ImageRef",
+  "type": "object"
+}

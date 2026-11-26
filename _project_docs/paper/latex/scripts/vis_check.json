@@ -1,0 +1,42 @@
+{
+ "nominal": {
+  "intact": {
+   "global_median": 0.40854999999999997,
+   "local_median": 0.0015,
+   "local_max": 0.0094,
+   "local_min": 0.0011
+  },
+  "t03": {
+   "global_median": 0.45709999999999995,
+   "local_median": 0.12165,
+   "local_max": 0.1783,
+   "local_min": 0.0894
+  },
+  "t06": {
+   "global_median": 0.47675,
+   "local_median": 0.26875,
+   "local_max": 0.3472,
+   "local_min": 0.2312
+  }
+ },
+ "nopose": {
+  "intact": {
+   "global_median": 0.01545,
+   "local_median": 0.0006,
+   "local_max": 0.0017,
+   "local_min": 0.0005
+  },
+  "t03": {
+   "global_median": 0.024050000000000002,
+   "local_median": 0.11465,
+   "local_max": 0.1361,
+   "local_min": 0.09
+  },
+  "t06": {
+   "global_median": 0.03075,
+   "local_median": 0.2669,
+   "local_max": 0.316,
+   "local_min": 0.2306
+  }
+ }
+}

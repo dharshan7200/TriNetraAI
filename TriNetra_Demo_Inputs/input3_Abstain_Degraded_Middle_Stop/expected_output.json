@@ -1,0 +1,4 @@
+{
+  "label": "ATTR_ABSTAIN_DEGRADED",
+  "meaning": "The change happened after CP2, but CP3's evidence is unusable, so customer (S2) and return courier (S3) cannot be separated. Send to manual review."
+}

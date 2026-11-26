@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>TriNetra-Link Capture</title>
+  <style>
+    :root {
+      --paper: #E8EDF2; --label: #FFFFFF; --ink: #172033; --ink-soft: #4A5568; --rule: #C5CED8;
+      --tape: #F2B705; --clear: #1E6B45; --warn: #8A5A00; --warn-bg: #FFF4D6; --fault: #B3261E; --focus: #0B57D0;
+      --field: #F7F9FB;
+      --display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+      --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --paper: #121821; --label: #1B2330; --ink: #E6EBF2; --ink-soft: #A3AEBD; --rule: #2C3646; --tape: #E0A800;
+        --clear: #5BC28F; --warn: #F2C14E; --warn-bg: #2A2414; --fault: #F07167; --focus: #8AB4F8; --field: #141B26; color-scheme: dark; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--paper); color: var(--ink); font: 400 16px/1.5 var(--body); padding: 16px; font-variant-numeric: tabular-nums; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .container { max-width: 620px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 3px solid var(--tape); }
+    .logo { font: 800 28px/1 var(--display); letter-spacing: .4px; color: var(--ink); }
+    .logo small { display: block; font: 500 13px/1.3 var(--body); color: var(--ink-soft); letter-spacing: 0; margin-top: 4px; }
+    .badge { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--label); color: var(--ink-soft); white-space: nowrap; }
+    .badge.on { color: var(--clear); border-color: var(--clear); }
+    .badge.off { color: var(--fault); border-color: var(--fault); }
+    .card { background: var(--label); border-radius: 10px; padding: 18px 16px; margin-bottom: 16px; box-shadow: 0 1px 0 rgba(23,32,51,.06), 0 6px 18px -12px rgba(23,32,51,.35); }
+    h2 { font: 800 21px/1.1 var(--display); letter-spacing: .3px; margin-bottom: 14px; }
+    label { display: block; font-size: 14px; font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; }
+    .hint { font-size: 13.5px; color: var(--ink-soft); margin: -6px 0 10px; }
+    input, select, textarea { width: 100%; min-height: 44px; background: var(--field); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px;
+      color: var(--ink); font: inherit; font-size: 16px; margin-bottom: 12px; }
+    input::placeholder, textarea::placeholder { color: var(--ink-soft); opacity: .75; }
+    input:focus, select:focus, textarea:focus { outline: 3px solid var(--focus); outline-offset: 0; border-color: transparent; }
+    .row { display: flex; gap: 10px; }
+    .row > div { flex: 1; min-width: 0; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; background: var(--ink); color: var(--label);
+      border: 2px solid var(--ink); border-radius: 6px; padding: 12px; font: 700 16px/1 var(--body); cursor: pointer; transition: background-color .12s ease, color .12s ease; }
+    .btn:hover { background: transparent; color: var(--ink); }
+    .btn:active { transform: translateY(1px); }
+    .btn-secondary { background: var(--label); color: var(--ink); margin-top: 8px; }
+    .btn-secondary:hover { background: var(--paper); }
+    .camera-box { position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4 / 3; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .38; pointer-events: none; display: none; }
+    .ghost.on { display: block; }
+    .guide-line { font-size: 14.5px; margin: 0 0 12px; color: var(--ink-soft); line-height: 1.45; }
+    .guide-line.warn { color: var(--warn); }
+    .guide-toggle { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; color: var(--ink); margin: 0 0 10px; }
+    .guide-toggle input { width: 22px; height: 22px; min-height: 0; margin: 0; }
+    .viewfinder-guide { position: absolute; inset: 10%; border: 2px dashed rgba(242, 183, 5, .85); border-radius: 6px; pointer-events: none; }
+    .thumbnails { display: grid; gap: 10px; }
+    .shot-row { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; align-items: start; padding: 10px; border-radius: 8px; border: 1px solid var(--rule); }
+    .shot-row .shot-meta { grid-column: 1 / -1; }
+    .shot-row.ok { border-color: var(--clear); }
+    .shot-row.bad { border-color: var(--warn); background: var(--warn-bg); }
+    .shot-check { font-size: 14.5px; line-height: 1.45; }
+    .shot-check b { display: block; font-size: 15px; margin-bottom: 2px; }
+    .shot-row.ok .shot-check b { color: var(--clear); }
+    .shot-row.bad .shot-check b { color: var(--warn); }
+    .shot-check ul { margin: 2px 0 0; padding-left: 18px; }
+    .fix { color: var(--ink-soft); }
+    .check-line { font-size: 14.5px; margin-top: 4px; padding: 9px 12px; border-radius: 6px; display: none; line-height: 1.45; }
+    .check-line.ok { display: block; background: color-mix(in srgb, var(--clear) 12%, var(--label)); color: var(--clear); }
+    .check-line.bad { display: block; background: var(--warn-bg); color: var(--warn); }
+    .check-line .fix { display: block; }
+    .geo-line { font-size: 14.5px; margin: 0 0 12px; padding: 9px 12px; border-radius: 6px; background: var(--paper); color: var(--ink-soft); line-height: 1.45; }
+    .geo-line.on { background: color-mix(in srgb, var(--clear) 12%, var(--label)); color: var(--clear); }
+    .geo-line.off { background: var(--warn-bg); color: var(--warn); }
+    .shot-meta { display: block; color: var(--ink-soft); font-size: 13px; margin-top: 2px; }
+    .thumb-item { position: relative; width: 96px; height: 72px; border-radius: 6px; overflow: hidden; border: 1px solid var(--rule); }
+    .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-tag { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(23,32,51,.8); color: #fff; font-size: 11px; font-weight: 600; text-align: center; padding: 2px; }
+    .seal-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; }
+    #quality-result { display: none; padding: 12px 14px; border-radius: 6px; margin-top: 12px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+    .qr-pass { background: color-mix(in srgb, var(--clear) 12%, var(--label)); border: 1px solid var(--clear); color: var(--ink); }
+    .qr-pass strong { color: var(--clear); }
+    .qr-fail { background: color-mix(in srgb, var(--fault) 10%, var(--label)); border: 1px solid var(--fault); color: var(--ink); }
+    .qr-fail strong { color: var(--fault); }
+    code { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">TriNetra-Link<small>Checkpoint capture</small></div>
+      <div class="badge" id="api-status" role="status">Connecting…</div>
+    </header>
+
+    <!-- Step 1: Session Details -->
+    <div class="card">
+      <h2>1. Checkpoint Setup</h2>
+      <div class="row">
+        <div>
+          <label for="journey_code">Journey Code</label>
+          <input type="text" id="journey_code" placeholder="JRN-2026-0001" value="">
+        </div>
+        <div>
+          <label for="cp_index">Sequence</label>
+          <select id="cp_index">
+            <option value="1">CP1: Origin hub (intake)</option>
+            <option value="2">CP2: Carrier facility</option>
+            <option value="3">CP3: Customer doorstep / return pickup</option>
+            <option value="4">CP4: Return processing hub</option>
+          </select>
+        </div>
+      </div>
+      <label for="device_token">Device Token (X-Device-Token)</label>
+      <input type="password" id="device_token" value="" placeholder="Token issued for this device">
+    </div>
+
+    <!-- Step 2: Camera & Photos -->
+    <div class="card">
+      <h2>2. Guided Photographic Capture</h2>
+      <div class="camera-box">
+        <video id="camera-stream" autoplay playsinline></video>
+        <img class="ghost" id="ghost" alt="">
+        <div class="viewfinder-guide"></div>
+      </div>
+      <label class="guide-toggle" for="ghost-on"><input type="checkbox" id="ghost-on" checked> Show the CP1 photo as a framing guide</label>
+      <p class="guide-line" id="guide-line" role="status" aria-live="polite">From CP2 on, the CP1 photo of the chosen side appears faintly over the camera. Line the box up with it before taking the photo.</p>
+      <div class="row" style="margin-bottom: 8px;">
+        <div>
+          <label for="photo_side">Surface Side</label>
+          <select id="photo_side">
+            <option value="front">Front Orthogonal</option>
+            <option value="top">Top / Seal Surface</option>
+            <option value="back">Back Orthogonal</option>
+            <option value="seal">Tamper Seal Close-up</option>
+          </select>
+        </div>
+      </div>
+      <p class="geo-line" id="geo-status" role="status" aria-live="polite">Location: asking for permission…</p>
+      <button class="btn" id="snap-btn" type="button" style="margin-top: 12px;">Take Photo</button>
+      <button class="btn btn-secondary" id="start-cam-btn" type="button">Start / Switch Camera</button>
+      
+      <div style="margin-top: 12px;">
+        <label>Captured photos (each is checked right away; take the same side again to replace it)</label>
+        <div class="thumbnails" id="thumb-container"></div>
+      </div>
+    </div>
+
+    <!-- Step 3: Weighing Protocol -->
+    <div class="card">
+      <h2>3. Three Repeated Weighings (grams)</h2>
+      <div class="row">
+        <div>
+          <label for="w1">Reading 1</label>
+          <input type="number" step="0.1" id="w1" inputmode="decimal" placeholder="grams" value="">
+        </div>
+        <div>
+          <label for="w2">Reading 2</label>
+          <input type="number" step="0.1" id="w2" inputmode="decimal" placeholder="grams" value="">
+        </div>
+        <div>
+          <label for="w3">Reading 3</label>
+          <input type="number" step="0.1" id="w3" inputmode="decimal" placeholder="grams" value="">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="scale_id">Scale ID</label>
+          <input type="text" id="scale_id" value="" placeholder="ID on the scale label">
+        </div>
+        <div>
+          <label for="scale_status">Scale Status</label>
+          <select id="scale_status">
+            <option value="OK">OK (Settled)</option>
+            <option value="MANUAL">MANUAL (Verified)</option>
+            <option value="UNSTABLE">UNSTABLE</option>
+            <option value="ERROR">ERROR</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="permitted_change">Permitted Packaging Change?</label>
+          <select id="permitted_change">
+            <option value="false">No (Packaging Untouched)</option>
+            <option value="true">Yes (Legitimate Re-tape/Box)</option>
+          </select>
+        </div>
+        <div>
+          <label for="tare_delta">Tare Delta (g)</label>
+          <input type="number" step="0.1" id="tare_delta" inputmode="decimal" value="0.0">
+        </div>
+      </div>
+      <div class="check-line" id="readings-check" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- Step 4: Identity & QR -->
+    <div class="card">
+      <h2>4. Physical Seal & Serial Identity</h2>
+      <label for="seal_qr">Tamper-Evident Seal QR Code</label>
+      <input type="text" id="seal_qr" placeholder="Scan or enter seal QR payload" value="">
+      <div class="row">
+        <div>
+          <label for="serial">Serial Number</label>
+          <input type="text" id="serial" placeholder="Serial No." value="">
+        </div>
+        <div>
+          <label for="imei">IMEI (if cellular)</label>
+          <input type="text" id="imei" placeholder="Optional IMEI">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="identifier_source">How were seal, serial and IMEI obtained?</label>
+          <select id="identifier_source">
+            <option value="scanned">Scanned (QR / barcode reader)</option>
+            <option value="typed">Typed from the label</option>
+            <option value="photo">Read off the photos</option>
+          </select>
+        </div>
+        <div>
+          <label for="glare_reported">Glare over a seal or defect?</label>
+          <select id="glare_reported">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
+      </div>
+      <p class="label-like" id="seals-label" style="font-size:14px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">Layered seals: ID and state of each layer (leave a layer blank if it is not present at this checkpoint)</p>
+      <div class="row">
+        <div><input type="text" id="seal_L1_FWD" aria-label="Forward flyer seal ID" placeholder="L1 forward flyer seal ID"></div>
+        <div><select id="seal_L1_FWD_state" aria-label="Forward flyer seal state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <div class="row">
+        <div><input type="text" id="seal_L1_RET" aria-label="Return flyer seal ID" placeholder="L1 return flyer seal ID"></div>
+        <div><select id="seal_L1_RET_state" aria-label="Return flyer seal state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <div class="row">
+        <div><input type="text" id="seal_L2_BOX" aria-label="Box sticker ID" placeholder="L2 box sticker ID"></div>
+        <div><select id="seal_L2_BOX_state" aria-label="Box sticker state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <div class="row">
+        <div><input type="text" id="seal_L3_ITEM" aria-label="Item tag ID" placeholder="L3 item tag ID"></div>
+        <div><select id="seal_L3_ITEM_state" aria-label="Item tag state"><option>INTACT</option><option>TORN</option><option>MISSING</option><option>UNREADABLE</option></select></div>
+      </div>
+      <label for="carrier_log">Carrier Custody Log Notes</label>
+      <textarea id="carrier_log" rows="2" placeholder="Hub transit notes, carrier signature, seal condition"></textarea>
+    </div>
+
+    <!-- Step 5: Submission -->
+    <div class="card">
+      <button class="btn" id="submit-btn" type="button">Submit Checkpoint Observation</button>
+      <div id="quality-result"></div>
+    </div>
+  </div>
+
+  <canvas id="hidden-canvas" style="display:none;"></canvas>
+
+  <script>
+    let currentStream = null;
+    let facingMode = 'environment';
+    const capturedPhotos = []; // array of {side: str, blob: Blob, sha256: str}
+
+    const video = document.getElementById('camera-stream');
+    const canvas = document.getElementById('hidden-canvas');
+    const statusBadge = document.getElementById('api-status');
+
+    // Check health
+    fetch('/health')
+      .then(res => res.json())
+      .then(d => {
+        statusBadge.textContent = 'Server online (v' + d.version + ')';
+        statusBadge.className = 'badge on';
+      })
+      .catch(() => {
+        statusBadge.textContent = 'Server offline';
+        statusBadge.className = 'badge off';
+      });
+
+    // Camera control
+    async function initCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = currentStream;
+      } catch (err) {
+        console.warn('getUserMedia failed, switching to default camera:', err);
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = currentStream;
+        } catch (e) {
+          alert('Could not access device camera: ' + e.message);
+        }
+      }
+    }
+
+    document.getElementById('start-cam-btn').addEventListener('click', () => {
+      facingMode = facingMode === 'environment' ? 'user' : 'environment';
+      initCamera();
+    });
+
+    // Auto-init camera on user interaction or load
+    initCamera().catch(() => {});
+
+    // Compute SHA-256 via Web Crypto
+    async function computeSHA256(arrayBuffer) {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Time and place of each photo. Stored with the photo and sealed into the evidence chain;
+    // the original photo is not altered (stamped copies are made from this data).
+    let lastFix = null;
+    const geoLine = document.getElementById('geo-status');
+    function localIso(d) {
+      const off = -d.getTimezoneOffset(), sign = off >= 0 ? '+' : '-', pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) +
+        '.' + String(d.getMilliseconds()).padStart(3, '0') + sign + pad(off / 60) + ':' + pad(off % 60);
+    }
+    function startLocation() {
+      if (!('geolocation' in navigator)) { geoLine.className = 'geo-line off'; geoLine.textContent = 'Location: not available on this device. Photos will be saved with time only.'; return; }
+      navigator.geolocation.watchPosition((pos) => {
+        lastFix = { lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy_m: Math.round(pos.coords.accuracy), at: Date.now() };
+        geoLine.className = 'geo-line on';
+        geoLine.textContent = 'Location on: ' + lastFix.lat.toFixed(5) + ', ' + lastFix.lon.toFixed(5) + ' (±' + lastFix.accuracy_m + ' m). Each photo records its time and place.';
+      }, (err) => {
+        geoLine.className = 'geo-line off';
+        geoLine.textContent = err.code === 1
+          ? 'Location: permission denied. Photos will be saved with time only. Allow location for this site to record where each photo was taken.'
+          : 'Location: no fix yet (' + err.message + '). Photos will be saved with time only until a fix arrives.';
+      }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+    }
+    startLocation();
+
+    // Framing guide: show CP1's photo of the selected side over the live camera at CP2..CP4,
+    // so every checkpoint photographs the box from the same position (the comparison needs this).
+    const ghost = document.getElementById('ghost'), guideLine = document.getElementById('guide-line');
+    let ghostUrl = null;
+    async function refreshGhost() {
+      const k = parseInt(document.getElementById('cp_index').value, 10);
+      const code = document.getElementById('journey_code').value.trim();
+      const side = document.getElementById('photo_side').value;
+      ghost.classList.remove('on');
+      guideLine.className = 'guide-line';
+      if (k === 1) { guideLine.textContent = 'CP1 sets the reference: hold the phone about 40 cm away, square to the box face, the whole face in frame. Later checkpoints will be guided to match these photos.'; return; }
+      if (!code || !tokenValue()) { guideLine.textContent = 'Enter the journey code and device token to see the CP1 framing guide.'; return; }
+      try {
+        const r = await fetch('/journeys/' + encodeURIComponent(code) + '/reference/' + encodeURIComponent(side), { headers: { 'X-Device-Token': tokenValue() } });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          guideLine.className = 'guide-line warn';
+          guideLine.textContent = (d.detail || 'No CP1 photo') + '. A ' + side.toUpperCase() + ' photo here cannot be compared with CP1; use a side that CP1 photographed.';
+          return;
+        }
+        if (ghostUrl) URL.revokeObjectURL(ghostUrl);
+        ghostUrl = URL.createObjectURL(await r.blob());
+        ghost.src = ghostUrl;
+        if (document.getElementById('ghost-on').checked) ghost.classList.add('on');
+        guideLine.textContent = 'Line the box up with the faint CP1 ' + side.toUpperCase() + ' photo: same distance, same angle, same part of the box in frame. Different framing can look like a change to the box.';
+      } catch (e) { guideLine.textContent = 'Could not load the CP1 framing guide (' + e.message + ').'; }
+    }
+    ['cp_index', 'photo_side', 'journey_code', 'device_token'].forEach(id => document.getElementById(id).addEventListener('change', refreshGhost));
+    document.getElementById('ghost-on').addEventListener('change', (e) => ghost.classList.toggle('on', e.target.checked && !!ghost.getAttribute('src')));
+    function photoMeta() {
+      const fresh = lastFix && (Date.now() - lastFix.at) < 60000 ? lastFix : null;
+      return { captured_at: localIso(new Date()), lat: fresh ? fresh.lat : null, lon: fresh ? fresh.lon : null, accuracy_m: fresh ? fresh.accuracy_m : null };
+    }
+
+    // Capture photo. Taking the same side again replaces the earlier photo (that is how a retake works).
+    const tokenValue = () => document.getElementById('device_token').value.trim();
+
+    function renderCheck(entry) {
+      const row = entry.row, box = row.querySelector('.shot-check');
+      row.classList.remove('ok', 'bad');
+      if (entry.check === 'pending') { box.innerHTML = '<b>Checking photo…</b>'; return; }
+      if (entry.check === 'error') { box.innerHTML = '<b>Not checked</b><span class="fix">' + entry.checkError + '</span>'; return; }
+      const c = entry.check;
+      if (c.ok) {
+        row.classList.add('ok');
+        const tips = (c.tips || []).map(t => '<li>' + t.message + '. <span class="fix">' + t.fix + '</span></li>').join('');
+        box.innerHTML = tips
+          ? '<b>Good photo, one thing to check</b><ul>' + tips + '</ul>'
+          : '<b>Good photo</b><span class="fix">Bright, sharp and free of glare.</span>';
+      } else {
+        row.classList.add('bad');
+        const items = c.issues.map(i => '<li>' + i.message + '. <span class="fix">' + i.fix + '</span></li>').join('');
+        box.innerHTML = '<b>Retake recommended</b><ul>' + items + '</ul><span class="fix">Choose ' + entry.side.toUpperCase() + ' and press Take Photo to replace it.</span>';
+      }
+    }
+
+    async function checkPhoto(entry) {
+      if (!tokenValue()) {
+        entry.check = 'error'; entry.checkError = 'Enter the device token above to check photos.'; renderCheck(entry); return;
+      }
+      entry.check = 'pending'; renderCheck(entry);
+      const fd = new FormData();
+      fd.append('file', entry.blob, entry.filename);
+      fd.append('side', entry.side);
+      try {
+        const r = await fetch('/quality/photo', { method: 'POST', headers: { 'X-Device-Token': tokenValue() }, body: fd });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        if (!capturedPhotos.includes(entry)) return; // replaced meanwhile
+        entry.check = d;
+      } catch (err) {
+        entry.check = 'error'; entry.checkError = 'Could not check this photo: ' + err.message;
+      }
+      renderCheck(entry);
+    }
+
+    document.getElementById('snap-btn').addEventListener('click', async () => {
+      const side = document.getElementById('photo_side').value;
+      const meta = photoMeta();
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const buffer = await blob.arrayBuffer();
+        const sha256 = await computeSHA256(buffer);
+
+        // Replace an earlier photo of the same side
+        const old = capturedPhotos.findIndex(p => p.side === side);
+        if (old >= 0) { capturedPhotos[old].row.remove(); capturedPhotos.splice(old, 1); }
+
+        const row = document.createElement('div');
+        row.className = 'shot-row';
+        const thumb = document.createElement('div');
+        thumb.className = 'thumb-item';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        img.alt = side + ' photo';
+        const tag = document.createElement('div');
+        tag.className = 'thumb-tag';
+        tag.textContent = side.toUpperCase();
+        thumb.appendChild(img);
+        thumb.appendChild(tag);
+        const box = document.createElement('div');
+        box.className = 'shot-check';
+        box.setAttribute('role', 'status');
+        box.setAttribute('aria-live', 'polite');
+        row.appendChild(thumb);
+        row.appendChild(box);
+        document.getElementById('thumb-container').appendChild(row);
+
+        const entry = { side, blob, sha256, filename: `${side}.jpg`, row, check: 'pending', meta };
+        const metaLine = document.createElement('span');
+        metaLine.className = 'shot-meta';
+        metaLine.textContent = meta.captured_at.replace('T', ' ').slice(0, 19) + (meta.lat != null ? '  |  ' + meta.lat.toFixed(5) + ', ' + meta.lon.toFixed(5) + ' (±' + meta.accuracy_m + ' m)' : '  |  no location');
+        row.appendChild(metaLine);
+        capturedPhotos.push(entry);
+        checkPhoto(entry);
+
+        // Move the side selector on to the next side that has no photo yet
+        const sel = document.getElementById('photo_side');
+        const next = [...sel.options].map(o => o.value).find(v => !capturedPhotos.some(p => p.side === v));
+        if (next && entry.side === side) { sel.value = next; refreshGhost(); }
+      }, 'image/jpeg', 0.90);
+    });
+
+    // Check the three weighings as soon as they are entered
+    let readingsCheck = null;
+    async function checkReadings() {
+      const line = document.getElementById('readings-check');
+      const status = document.getElementById('scale_status').value;
+      const weights = ['w1', 'w2', 'w3'].map(id => document.getElementById(id).value.trim()).filter(v => v !== '').map(Number);
+      line.className = 'check-line';
+      readingsCheck = null;
+      if (status !== 'ERROR' && weights.length < 3) return;
+      if (!tokenValue()) return;
+      try {
+        const r = await fetch('/quality/readings', {
+          method: 'POST',
+          headers: { 'X-Device-Token': tokenValue(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weights_g: status === 'ERROR' ? [] : weights, scale_status: status, scale_id: document.getElementById('scale_id').value.trim() || null })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        readingsCheck = d;
+        if (d.ok) {
+          line.className = 'check-line ok';
+          line.textContent = 'Readings are steady (within ' + d.spread_limit_g + ' g of each other).';
+        } else {
+          line.className = 'check-line bad';
+          line.innerHTML = d.issues.map(i => '<b>' + i.message + '.</b> <span class="fix">' + i.fix + '</span>').join('');
+        }
+      } catch (err) { /* the server still checks everything on submit */ }
+    }
+    ['w1', 'w2', 'w3', 'scale_id'].forEach(id => document.getElementById(id).addEventListener('change', checkReadings));
+    document.getElementById('scale_status').addEventListener('change', checkReadings);
+    document.getElementById('device_token').addEventListener('change', () => {
+      capturedPhotos.filter(p => p.check === 'error').forEach(checkPhoto);
+      checkReadings();
+    });
+
+    // Submit Observation
+    document.getElementById('submit-btn').addEventListener('click', async () => {
+      const code = document.getElementById('journey_code').value.trim();
+      const cp = document.getElementById('cp_index').value;
+      const token = document.getElementById('device_token').value.trim();
+      const resBox = document.getElementById('quality-result');
+
+      if (!code) return alert('Journey code is required');
+      if (capturedPhotos.length === 0) {
+        // Never substitute a generated image: every checkpoint needs real photographs.
+        return alert('Capture at least one photo of the parcel before submitting.');
+      }
+
+      const flagged = capturedPhotos.filter(p => p.check && p.check.ok === false).map(p => p.side.toUpperCase() + ' photo: ' + p.check.issues.map(i => i.message.toLowerCase()).join(', '));
+      if (readingsCheck && !readingsCheck.ok) flagged.push('Weighings: ' + readingsCheck.issues.map(i => i.message.toLowerCase()).join(', '));
+      if (flagged.length && !confirm('This checkpoint may not be trusted, and the system may then be unable to decide:\n\n- ' + flagged.join('\n- ') + '\n\nPress Cancel to retake, or OK to submit it as it is.')) return;
+
+      const scaleStatus = document.getElementById('scale_status').value;
+      const readings = ['w1', 'w2', 'w3']
+        .map(id => document.getElementById(id).value.trim())
+        .filter(v => v !== '')
+        .map(v => parseFloat(v));
+      if (scaleStatus !== 'ERROR' && (readings.length < 3 || readings.some(w => !(w > 0)))) {
+        return alert('Enter three positive weight readings, or set the scale status to ERROR if the scale failed.');
+      }
+
+      const metadata = {
+        journey_code: code,
+        cp_index: parseInt(cp),
+        ts_utc: new Date().toISOString(),
+        device_id: 'BROWSER-CLIENT-01',
+        operator_id: 'FIELD-OP',
+        weights_g: scaleStatus === 'ERROR' ? [] : readings,
+        scale_id: document.getElementById('scale_id').value.trim(),
+        scale_status: document.getElementById('scale_status').value,
+        seal_qr: document.getElementById('seal_qr').value.trim() || null,
+        serial: document.getElementById('serial').value.trim() || null,
+        imei: document.getElementById('imei').value.trim() || null,
+        carrier_log: document.getElementById('carrier_log').value.trim() || null,
+        identifier_source: document.getElementById('identifier_source').value,
+        glare_reported: document.getElementById('glare_reported').value === 'true',
+        seals: ['L1_FWD', 'L1_RET', 'L2_BOX', 'L3_ITEM']
+          .map(layer => {
+            const id = document.getElementById('seal_' + layer).value.trim();
+            const state = document.getElementById('seal_' + layer + '_state').value;
+            if (!id && state === 'INTACT') return null;  // layer not present at this checkpoint
+            return { layer: layer, seal_id_read: id || null, state: state };
+          })
+          .filter(s => s !== null),
+        permitted_packaging_change: document.getElementById('permitted_change').value === 'true',
+        tare_delta_g: parseFloat(document.getElementById('tare_delta').value) || 0.0,
+        client_hashes: {},
+        photo_meta: Object.fromEntries(capturedPhotos.map(p => [p.filename, p.meta]))
+      };
+
+      const formData = new FormData();
+      capturedPhotos.forEach((photo, i) => {
+        formData.append('files', photo.blob, photo.filename);
+        metadata.client_hashes[photo.filename] = photo.sha256;
+      });
+      formData.append('data', JSON.stringify(metadata));
+
+      resBox.style.display = 'block';
+      resBox.textContent = 'Uploading and evaluating physical quality factor...';
+      resBox.className = '';
+
+      try {
+        const resp = await fetch(`/journeys/${encodeURIComponent(code)}/checkpoints/${cp}`, {
+          method: 'POST',
+          headers: { 'X-Device-Token': token },
+          body: formData
+        });
+        const data = await resp.json();
+
+        if (resp.ok) {
+          const q = data.quality_report;
+          resBox.className = q.passed ? 'qr-pass' : 'qr-fail';
+          resBox.innerHTML = `
+            <strong>${q.passed ? '✓ Checkpoint Accepted' : '⚠ Quality Warning'} (q = ${q.q_k})</strong><br>
+            Scale Score: ${q.feature_scores.q_scale ?? '1.0'}, Temporal Score: ${q.feature_scores.q_temporal ?? '1.0'}<br>
+            ${q.reasons.length ? 'Notes: ' + q.reasons.join(', ') : 'All physical metadata gates passed.'}<br>
+            Saved to: <code>${data.saved_folder || ''}</code><br>
+            Evidence sealed: fingerprint <code>${(data.record_hash || '').slice(0, 16)}…</code> (linked to the previous checkpoint)
+            ${(data.warnings || []).length ? '<br><strong>Warning:</strong> ' + data.warnings.join(' ') : ''}
+          `;
+        } else {
+          resBox.className = 'qr-fail';
+          resBox.textContent = 'Upload Failed (' + resp.status + '): ' + (data.detail || JSON.stringify(data));
+        }
+      } catch (err) {
+        resBox.className = 'qr-fail';
+        resBox.textContent = 'Network or submission error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

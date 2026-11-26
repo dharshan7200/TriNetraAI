@@ -1,0 +1,267 @@
+{
+  "journey_code": "DEMO-PHONE-0002",
+  "product": "Smartphone",
+  "SIMULATED": "Demo input generated for illustration. Not a real parcel.",
+  "checkpoints": [
+    {
+      "journey_code": "DEMO-PHONE-0002",
+      "cp_index": 1,
+      "checkpoint_name": "CP1 Seller dispatch (origin hub)",
+      "ts_utc": "2026-11-10T10:00:00+00:00",
+      "device_id": "DEMO_PHONE_1",
+      "operator_id": "OP_DEMO_1",
+      "weights_g": [
+        295.72,
+        294.71,
+        294.57
+      ],
+      "scale_id": "SCALE_HUB_01",
+      "scale_status": "OK",
+      "seal_qr": "BOX-975256",
+      "serial": "SN975256",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_FWD",
+          "seal_id_read": "FWD-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-975256",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP1_TOP.jpg",
+          "sha256": "45d7fb272f906061a64be58db42f9d5788a8d548055714ab5879987d6416278c",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP1_LABEL.jpg",
+          "sha256": "9434eaedcf784069d53773dc820daadee0e9e1be31de3c700a6efbb3afb25d5c",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP1_SEAL.jpg",
+          "sha256": "0680642270eee205674b3137d6a01860678be9e0981a0defd04505ca0a4866ea",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "c2e3c8da6f78eed42b0816ea3260f16ce77a08b31da52277066c9075bd21d20e",
+      "record_hash": "1632b66bb8a790a7ad8d15c775d67b3753b3e5678f804a231b444b63e3dfa3b5"
+    },
+    {
+      "journey_code": "DEMO-PHONE-0002",
+      "cp_index": 2,
+      "checkpoint_name": "CP2 Delivered to customer",
+      "ts_utc": "2026-11-12T11:00:00+00:00",
+      "device_id": "DEMO_PHONE_2",
+      "operator_id": "OP_DEMO_2",
+      "weights_g": [
+        296.14,
+        294.92,
+        294.94
+      ],
+      "scale_id": "SCALE_DOOR_02",
+      "scale_status": "OK",
+      "seal_qr": "BOX-975256",
+      "serial": "SN975256",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_FWD",
+          "seal_id_read": "FWD-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-975256",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP2_TOP.jpg",
+          "sha256": "d3214665a81ab870a85c1e252766c339cdc39fb0920f3bf18590c6ec5a017356",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP2_LABEL.jpg",
+          "sha256": "1c305fc485cc9e96595f989f48f7d15de3178828424335f44441567a58c023b0",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP2_SEAL.jpg",
+          "sha256": "f377cadad6d1fae26adeb70748cf8d59d88c7cb1af245e810491d5c40b904529",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "1632b66bb8a790a7ad8d15c775d67b3753b3e5678f804a231b444b63e3dfa3b5",
+      "record_hash": "aeba7b967781992f7a6f2c5e6a61c372336baee3d110133bc8676ac904fdb4a7"
+    },
+    {
+      "journey_code": "DEMO-PHONE-0002",
+      "cp_index": 3,
+      "checkpoint_name": "CP3 Return pickup from customer",
+      "ts_utc": "2026-11-19T12:00:00+00:00",
+      "device_id": "DEMO_PHONE_3",
+      "operator_id": "OP_DEMO_3",
+      "weights_g": [
+        294.98,
+        295.46,
+        296.27
+      ],
+      "scale_id": "SCALE_RET_03",
+      "scale_status": "OK",
+      "seal_qr": "BOX-975256",
+      "serial": "SN975256",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_RET",
+          "seal_id_read": "RET-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-975256",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP3_TOP.jpg",
+          "sha256": "a58c5fa934295ca26e5dbffddb345ef55364b80c16eaeabd09e6679ed0398f0d",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP3_LABEL.jpg",
+          "sha256": "da849d240956268bf85ae26d8d7a8e5060a23ea4e25208ada977cc8fd10fc92d",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP3_SEAL.jpg",
+          "sha256": "a0bb3e591dba2093d25cc56d699f68a7be14030b18828e6befd9405389b0c6a6",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "aeba7b967781992f7a6f2c5e6a61c372336baee3d110133bc8676ac904fdb4a7",
+      "record_hash": "64c56136d8345981cfe3e4f56ed3748109e4dae41e491211b65c3bf4cb8b494a"
+    },
+    {
+      "journey_code": "DEMO-PHONE-0002",
+      "cp_index": 4,
+      "checkpoint_name": "CP4 Warehouse intake (return hub)",
+      "ts_utc": "2026-11-21T13:00:00+00:00",
+      "device_id": "DEMO_PHONE_4",
+      "operator_id": "OP_DEMO_4",
+      "weights_g": [
+        210.21,
+        209.64,
+        210.12
+      ],
+      "scale_id": "SCALE_WH_04",
+      "scale_status": "OK",
+      "seal_qr": "BOX-975256",
+      "serial": "SNXX0000",
+      "imei": "350000000000000",
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_RET",
+          "seal_id_read": "RET-FAKE99",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-975256",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": null,
+          "state": "MISSING"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP4_TOP.jpg",
+          "sha256": "2daa2aa1db35fe1693d86e37bd35fe3afcd4d8a4ac7ebef15b52f17bbd896801",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP4_LABEL.jpg",
+          "sha256": "bfd6a51c266a3d1b5ebb03d8a2df45e924553a402406c9415442b88b5de4bb01",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP4_SEAL.jpg",
+          "sha256": "c93870fec17ceb7d48b4dd0f006a638c7a4894f8250064e15ff7005a7772b867",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "Return flyer seal ID differs; item tag missing; box re-taped",
+      "prev_record_hash": "64c56136d8345981cfe3e4f56ed3748109e4dae41e491211b65c3bf4cb8b494a",
+      "record_hash": "c482f15422c6042d77e09d0572944393b30f46c2369e8ee1385833e5f50426eb"
+    }
+  ]
+}

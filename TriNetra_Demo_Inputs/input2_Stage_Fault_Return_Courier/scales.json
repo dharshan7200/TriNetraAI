@@ -1,0 +1,26 @@
+{
+  "synthetic": true,
+  "note": "Demo scale characterisation (simulated): sigma = noise SD, delta = linearity drift, grams.",
+  "scales": {
+    "SCALE_HUB_01": {
+      "scale_id": "SCALE_HUB_01",
+      "sigma_g": 0.5,
+      "delta_g": 0.1
+    },
+    "SCALE_DOOR_02": {
+      "scale_id": "SCALE_DOOR_02",
+      "sigma_g": 1.0,
+      "delta_g": 0.2
+    },
+    "SCALE_RET_03": {
+      "scale_id": "SCALE_RET_03",
+      "sigma_g": 1.0,
+      "delta_g": 0.2
+    },
+    "SCALE_WH_04": {
+      "scale_id": "SCALE_WH_04",
+      "sigma_g": 0.5,
+      "delta_g": 0.1
+    }
+  }
+}

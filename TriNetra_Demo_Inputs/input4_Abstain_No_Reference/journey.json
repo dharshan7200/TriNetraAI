@@ -1,0 +1,263 @@
+{
+  "journey_code": "DEMO-SHOES-0004",
+  "product": "Running Shoes",
+  "SIMULATED": "Demo input generated for illustration. Not a real parcel.",
+  "checkpoints": [
+    {
+      "journey_code": "DEMO-SHOES-0004",
+      "cp_index": 1,
+      "checkpoint_name": "CP1 Seller dispatch (origin hub)",
+      "ts_utc": "2026-11-10T10:00:00+00:00",
+      "device_id": "DEMO_PHONE_1",
+      "operator_id": "OP_DEMO_1",
+      "weights_g": [],
+      "scale_id": "SCALE_HUB_01",
+      "scale_status": "ERROR",
+      "seal_qr": "BOX-843B47",
+      "serial": "SN843B47",
+      "imei": null,
+      "identifier_source": "photo",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_FWD",
+          "seal_id_read": "FWD-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-843B47",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP1_TOP.jpg",
+          "sha256": "0b93a7442bd607da1cbea7e31519156d38ef6392c619eb19b2504a9eca1f6ff2",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP1_LABEL.jpg",
+          "sha256": "aadd9c936a94c52fa153c476eedc6d2f2835ae723001c15a3967da695f330b12",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP1_SEAL.jpg",
+          "sha256": "5a8c64e74a4c1189d8929bcf67a108100979f81da21f459e53de4f3b1155d8eb",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "Seller packed in a dark store room: scale ERROR, photos dark and blurred",
+      "prev_record_hash": "8fe5c89a7a80b2d9e334cf3b9dc53dfbb164d435e9c6ae5fc3c826456863aca2",
+      "record_hash": "fe94c0a557ec28281ef97abe80377cffa11574bb3e8be97296463dfafc4f7d9a"
+    },
+    {
+      "journey_code": "DEMO-SHOES-0004",
+      "cp_index": 2,
+      "checkpoint_name": "CP2 Delivered to customer",
+      "ts_utc": "2026-11-12T11:00:00+00:00",
+      "device_id": "DEMO_PHONE_2",
+      "operator_id": "OP_DEMO_2",
+      "weights_g": [
+        974.46,
+        974.09,
+        975.53
+      ],
+      "scale_id": "SCALE_DOOR_02",
+      "scale_status": "OK",
+      "seal_qr": "BOX-843B47",
+      "serial": "SN843B47",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_FWD",
+          "seal_id_read": "FWD-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-843B47",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP2_TOP.jpg",
+          "sha256": "581174b1318258735111132c91a764250bf9b55ccfb31c153ad639e8eada8b0e",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP2_LABEL.jpg",
+          "sha256": "e65d11554d86bf017f88ef960d79f483d2c430c0e234347024c4f943cb229cce",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP2_SEAL.jpg",
+          "sha256": "29b1832b4975e53c85d22713af1b77ce465a640ffc5a396ec19b83d655009a80",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "fe94c0a557ec28281ef97abe80377cffa11574bb3e8be97296463dfafc4f7d9a",
+      "record_hash": "9b4631c139b2e4661a025c13ba39953d2ab8736d0c2de353c0355abe873a1ed0"
+    },
+    {
+      "journey_code": "DEMO-SHOES-0004",
+      "cp_index": 3,
+      "checkpoint_name": "CP3 Return pickup from customer",
+      "ts_utc": "2026-11-19T12:00:00+00:00",
+      "device_id": "DEMO_PHONE_3",
+      "operator_id": "OP_DEMO_3",
+      "weights_g": [
+        974.58,
+        975.32,
+        974.79
+      ],
+      "scale_id": "SCALE_RET_03",
+      "scale_status": "OK",
+      "seal_qr": "BOX-843B47",
+      "serial": "SN843B47",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_RET",
+          "seal_id_read": "RET-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-843B47",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP3_TOP.jpg",
+          "sha256": "c517406c65a5bfc3d18e6581a6aa4bad140cf567ca249ae306c42c713e936363",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP3_LABEL.jpg",
+          "sha256": "bfc6691cf49e2e7fb5ef097959cbe157b674ef92e29d820a7934f70887d44436",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP3_SEAL.jpg",
+          "sha256": "749b61b8ef81ad924ac4ed11f724f7aa10febe776ec05f3ceefd834e65e3986f",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "",
+      "prev_record_hash": "9b4631c139b2e4661a025c13ba39953d2ab8736d0c2de353c0355abe873a1ed0",
+      "record_hash": "5391f433256b24f32d04ff01611c5cb9a6f98ea358fe188b6cea76123a27c357"
+    },
+    {
+      "journey_code": "DEMO-SHOES-0004",
+      "cp_index": 4,
+      "checkpoint_name": "CP4 Warehouse intake (return hub)",
+      "ts_utc": "2026-11-21T13:00:00+00:00",
+      "device_id": "DEMO_PHONE_4",
+      "operator_id": "OP_DEMO_4",
+      "weights_g": [
+        654.2,
+        655.1,
+        655.53
+      ],
+      "scale_id": "SCALE_WH_04",
+      "scale_status": "OK",
+      "seal_qr": "BOX-843B47",
+      "serial": "SN843B47",
+      "imei": null,
+      "identifier_source": "scanned",
+      "glare_reported": false,
+      "permitted_packaging_change": false,
+      "tare_delta_g": 0.0,
+      "seals": [
+        {
+          "layer": "L1_RET",
+          "seal_id_read": "RET-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L2_BOX",
+          "seal_id_read": "BOX-843B47",
+          "state": "INTACT"
+        },
+        {
+          "layer": "L3_ITEM",
+          "seal_id_read": "TAG-843B47",
+          "state": "INTACT"
+        }
+      ],
+      "images": [
+        {
+          "side": "TOP",
+          "path": "images/CP4_TOP.jpg",
+          "sha256": "9e7c97ca6fc6b9b3c6e6c618cc9c58d3bd74247dbaa21ce1d1f13ef18f5569aa",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "LABEL",
+          "path": "images/CP4_LABEL.jpg",
+          "sha256": "c94d78ac486dbed2f060ce2176c15d0bc492501bcef8c4d5161c02948fa6e69f",
+          "w": 640,
+          "h": 480
+        },
+        {
+          "side": "SEAL",
+          "path": "images/CP4_SEAL.jpg",
+          "sha256": "16dbf90643a095b916a29604a38af3cd8089f33b042ebfc02d0d6c430f479331",
+          "w": 640,
+          "h": 480
+        }
+      ],
+      "operator_note": "One shoe missing (320 g lighter)",
+      "prev_record_hash": "5391f433256b24f32d04ff01611c5cb9a6f98ea358fe188b6cea76123a27c357",
+      "record_hash": "41f0459d234df4bfc9cfd26ba286a1e88f493e830db6ced216250a97cea8cc03"
+    }
+  ]
+}
